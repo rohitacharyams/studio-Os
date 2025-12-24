@@ -1,0 +1,55 @@
+# Development compose - only runs infrastructure services
+# Application services run locally with hot reload
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: studio-os-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: studio
+      POSTGRES_PASSWORD: studio_password
+      POSTGRES_DB: studio_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studio -d studio_os"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for BullMQ
+  redis:
+    image: redis:7-alpine
+    container_name: studio-os-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Commander (Redis GUI) - optional
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: studio-os-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:

@@ -1,0 +1,104 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: studio-os-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: studio_os
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: studio-os-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (Flask)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studio-os-backend
+    environment:
+      FLASK_APP: run.py
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/studio_os
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-change-in-production}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_NUMBER: ${TWILIO_WHATSAPP_NUMBER:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: flask run --host=0.0.0.0 --port=5000 --reload
+
+  # Celery Worker (background tasks)
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: studio-os-worker
+    environment:
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/studio_os
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app:celery_app worker --loglevel=info
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: studio-os-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

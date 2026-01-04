@@ -44,6 +44,8 @@ def create_app(config_name='default'):
     from app.routes.integrations import integrations_bp
     from app.routes.llm import llm_bp
     from app.routes.scheduling import scheduling_bp
+    from app.routes.bookings import bookings_bp
+    from app.routes.payments import payments_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(conversations_bp, url_prefix='/api/conversations')
@@ -57,6 +59,8 @@ def create_app(config_name='default'):
     app.register_blueprint(integrations_bp, url_prefix='/api/integrations')
     app.register_blueprint(llm_bp, url_prefix='/api/llm')
     app.register_blueprint(scheduling_bp, url_prefix='/api/scheduling')
+    app.register_blueprint(bookings_bp)  # Already has /api/bookings prefix
+    app.register_blueprint(payments_bp)  # Already has /api/payments prefix
     
     # Health check endpoint
     @app.route('/health')

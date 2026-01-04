@@ -571,3 +571,575 @@ class Room(db.Model):
             'features': self.features,
             'is_active': self.is_active,
         }
+
+
+# ============================================================
+# BOOKING SYSTEM MODELS
+# ============================================================
+
+class BookingStatus(str, Enum):
+    """Booking status types."""
+    PENDING = 'PENDING'
+    CONFIRMED = 'CONFIRMED'
+    WAITLIST = 'WAITLIST'
+    CANCELLED = 'CANCELLED'
+    NO_SHOW = 'NO_SHOW'
+    ATTENDED = 'ATTENDED'
+
+
+class ClassSession(db.Model):
+    """Individual class session (instance of a scheduled class)."""
+    __tablename__ = 'class_sessions'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    schedule_id = db.Column(db.String(36), db.ForeignKey('class_schedules.id'))
+    class_id = db.Column(db.String(36), db.ForeignKey('dance_classes.id'))
+    
+    # Session timing
+    date = db.Column(db.Date, nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    
+    # Capacity
+    max_capacity = db.Column(db.Integer, default=15)
+    booked_count = db.Column(db.Integer, default=0)
+    waitlist_count = db.Column(db.Integer, default=0)
+    
+    # Instructor
+    instructor_id = db.Column(db.String(36), db.ForeignKey('instructors.id'))
+    substitute_instructor_id = db.Column(db.String(36), db.ForeignKey('instructors.id'))
+    
+    # Room
+    room_id = db.Column(db.String(36), db.ForeignKey('rooms.id'))
+    
+    # Status
+    status = db.Column(db.String(20), default='SCHEDULED')  # SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+    cancellation_reason = db.Column(db.String(255))
+    
+    # Notes
+    notes = db.Column(db.Text)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    bookings = db.relationship('Booking', backref='session', lazy='dynamic')
+    waitlist = db.relationship('Waitlist', backref='session', lazy='dynamic')
+    
+    @property
+    def available_spots(self):
+        return max(0, self.max_capacity - self.booked_count)
+    
+    @property
+    def is_full(self):
+        return self.booked_count >= self.max_capacity
+    
+    def to_dict(self, include_bookings=False):
+        data = {
+            'id': self.id,
+            'studio_id': self.studio_id,
+            'schedule_id': self.schedule_id,
+            'class_id': self.class_id,
+            'date': self.date.isoformat() if self.date else None,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'max_capacity': self.max_capacity,
+            'booked_count': self.booked_count,
+            'waitlist_count': self.waitlist_count,
+            'available_spots': self.available_spots,
+            'is_full': self.is_full,
+            'instructor_id': self.instructor_id,
+            'room_id': self.room_id,
+            'status': self.status,
+        }
+        if include_bookings:
+            data['bookings'] = [b.to_dict() for b in self.bookings.all()]
+        return data
+
+
+class Booking(db.Model):
+    """Class booking by a contact/student."""
+    __tablename__ = 'bookings'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    booking_number = db.Column(db.String(20), unique=True, nullable=False)  # BK-2025-0001
+    
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=False)
+    session_id = db.Column(db.String(36), db.ForeignKey('class_sessions.id'), nullable=False)
+    
+    # Status
+    status = db.Column(db.String(20), default='PENDING')  # PENDING, CONFIRMED, WAITLIST, CANCELLED, NO_SHOW, ATTENDED
+    waitlist_position = db.Column(db.Integer, nullable=True)
+    
+    # Payment
+    payment_id = db.Column(db.String(36), db.ForeignKey('payments.id'))
+    payment_method = db.Column(db.String(20))  # drop_in, class_pack, subscription, wallet
+    class_pack_purchase_id = db.Column(db.String(36), db.ForeignKey('class_pack_purchases.id'))
+    
+    # Timestamps
+    booked_at = db.Column(db.DateTime, default=datetime.utcnow)
+    confirmed_at = db.Column(db.DateTime)
+    cancelled_at = db.Column(db.DateTime)
+    checked_in_at = db.Column(db.DateTime)
+    
+    # Cancellation
+    cancellation_reason = db.Column(db.String(255))
+    refund_amount = db.Column(db.Numeric(10, 2), default=0)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self, include_session=False, include_contact=False):
+        data = {
+            'id': self.id,
+            'booking_number': self.booking_number,
+            'studio_id': self.studio_id,
+            'contact_id': self.contact_id,
+            'session_id': self.session_id,
+            'status': self.status,
+            'waitlist_position': self.waitlist_position,
+            'payment_method': self.payment_method,
+            'booked_at': self.booked_at.isoformat() if self.booked_at else None,
+            'confirmed_at': self.confirmed_at.isoformat() if self.confirmed_at else None,
+            'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None,
+            'checked_in_at': self.checked_in_at.isoformat() if self.checked_in_at else None,
+        }
+        if include_session and self.session:
+            data['session'] = self.session.to_dict()
+        return data
+
+
+class Waitlist(db.Model):
+    """Waitlist for full class sessions."""
+    __tablename__ = 'waitlists'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    session_id = db.Column(db.String(36), db.ForeignKey('class_sessions.id'), nullable=False)
+    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=False)
+    
+    position = db.Column(db.Integer, nullable=False)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notified_at = db.Column(db.DateTime)
+    expires_at = db.Column(db.DateTime)  # Time limit to respond
+    
+    # Status
+    status = db.Column(db.String(20), default='WAITING')  # WAITING, NOTIFIED, CONVERTED, EXPIRED, CANCELLED
+    auto_book = db.Column(db.Boolean, default=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'session_id': self.session_id,
+            'contact_id': self.contact_id,
+            'position': self.position,
+            'status': self.status,
+            'auto_book': self.auto_book,
+            'joined_at': self.joined_at.isoformat() if self.joined_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+        }
+
+
+# ============================================================
+# PAYMENT SYSTEM MODELS
+# ============================================================
+
+class PaymentStatus(str, Enum):
+    """Payment status types."""
+    PENDING = 'PENDING'
+    PROCESSING = 'PROCESSING'
+    COMPLETED = 'COMPLETED'
+    FAILED = 'FAILED'
+    REFUNDED = 'REFUNDED'
+    PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED'
+
+
+class PaymentProvider(str, Enum):
+    """Payment provider types."""
+    RAZORPAY = 'RAZORPAY'
+    STRIPE = 'STRIPE'
+    WALLET = 'WALLET'
+    CASH = 'CASH'
+    BANK_TRANSFER = 'BANK_TRANSFER'
+
+
+class Payment(db.Model):
+    """Payment transaction record."""
+    __tablename__ = 'payments'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    payment_number = db.Column(db.String(20), unique=True, nullable=False)  # PAY-2025-0001
+    
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=False)
+    
+    # Amount
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    
+    # Tax
+    tax_amount = db.Column(db.Numeric(10, 2), default=0)
+    tax_rate = db.Column(db.Numeric(5, 2), default=18)  # GST 18%
+    
+    # Discount
+    discount_code = db.Column(db.String(20))
+    discount_amount = db.Column(db.Numeric(10, 2), default=0)
+    
+    # Total
+    total_amount = db.Column(db.Numeric(10, 2), nullable=False)
+    
+    # Provider
+    provider = db.Column(db.String(20), default='RAZORPAY')
+    provider_order_id = db.Column(db.String(100))  # razorpay_order_id
+    provider_payment_id = db.Column(db.String(100))  # razorpay_payment_id
+    provider_signature = db.Column(db.String(255))
+    
+    # Payment method
+    payment_method = db.Column(db.String(20))  # upi, card, netbanking, wallet
+    payment_method_details = db.Column(db.JSON)  # {"bank": "HDFC", "last4": "1234"}
+    
+    # Status
+    status = db.Column(db.String(20), default='PENDING')
+    failure_reason = db.Column(db.String(255))
+    
+    # Purchase reference
+    purchase_type = db.Column(db.String(20))  # DROP_IN, CLASS_PACK, SUBSCRIPTION, PRIVATE_SESSION
+    purchase_description = db.Column(db.String(255))
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    
+    # Invoice
+    invoice_number = db.Column(db.String(20))
+    invoice_url = db.Column(db.String(255))
+    
+    # Relationships
+    bookings = db.relationship('Booking', backref='payment', lazy='dynamic')
+    refunds = db.relationship('Refund', backref='payment', lazy='dynamic')
+    
+    def to_dict(self, include_bookings=False):
+        data = {
+            'id': self.id,
+            'payment_number': self.payment_number,
+            'studio_id': self.studio_id,
+            'contact_id': self.contact_id,
+            'amount': float(self.amount) if self.amount else 0,
+            'currency': self.currency,
+            'tax_amount': float(self.tax_amount) if self.tax_amount else 0,
+            'discount_amount': float(self.discount_amount) if self.discount_amount else 0,
+            'total_amount': float(self.total_amount) if self.total_amount else 0,
+            'provider': self.provider,
+            'payment_method': self.payment_method,
+            'status': self.status,
+            'purchase_type': self.purchase_type,
+            'purchase_description': self.purchase_description,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'invoice_number': self.invoice_number,
+        }
+        return data
+
+
+class Refund(db.Model):
+    """Refund record."""
+    __tablename__ = 'refunds'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    payment_id = db.Column(db.String(36), db.ForeignKey('payments.id'), nullable=False)
+    
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    reason = db.Column(db.String(255))
+    
+    # Provider refund ID
+    provider_refund_id = db.Column(db.String(100))
+    
+    # Status
+    status = db.Column(db.String(20), default='PENDING')  # PENDING, PROCESSED, FAILED
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    processed_at = db.Column(db.DateTime)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'payment_id': self.payment_id,
+            'amount': float(self.amount) if self.amount else 0,
+            'reason': self.reason,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ClassPack(db.Model):
+    """Class pack product definition."""
+    __tablename__ = 'class_packs'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    
+    name = db.Column(db.String(100), nullable=False)  # "10 Class Pack"
+    description = db.Column(db.Text)
+    
+    # Pack details
+    class_count = db.Column(db.Integer, nullable=False)  # Number of classes
+    price = db.Column(db.Numeric(10, 2), nullable=False)
+    validity_days = db.Column(db.Integer, default=60)  # Valid for X days
+    
+    # Restrictions
+    class_types = db.Column(db.JSON)  # ["salsa", "hip-hop"] or null for all
+    
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    purchases = db.relationship('ClassPackPurchase', backref='class_pack', lazy='dynamic')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'studio_id': self.studio_id,
+            'name': self.name,
+            'description': self.description,
+            'class_count': self.class_count,
+            'price': float(self.price) if self.price else 0,
+            'validity_days': self.validity_days,
+            'class_types': self.class_types,
+            'is_active': self.is_active,
+        }
+
+
+class ClassPackPurchase(db.Model):
+    """Purchased class pack instance."""
+    __tablename__ = 'class_pack_purchases'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=False)
+    class_pack_id = db.Column(db.String(36), db.ForeignKey('class_packs.id'), nullable=False)
+    payment_id = db.Column(db.String(36), db.ForeignKey('payments.id'))
+    
+    # Usage tracking
+    classes_total = db.Column(db.Integer, nullable=False)
+    classes_used = db.Column(db.Integer, default=0)
+    
+    # Validity
+    purchased_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    
+    # Status
+    status = db.Column(db.String(20), default='ACTIVE')  # ACTIVE, EXHAUSTED, EXPIRED, REFUNDED
+    
+    @property
+    def classes_remaining(self):
+        return max(0, self.classes_total - self.classes_used)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'contact_id': self.contact_id,
+            'class_pack_id': self.class_pack_id,
+            'classes_total': self.classes_total,
+            'classes_used': self.classes_used,
+            'classes_remaining': self.classes_remaining,
+            'purchased_at': self.purchased_at.isoformat() if self.purchased_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'status': self.status,
+        }
+
+
+class SubscriptionPlan(db.Model):
+    """Subscription plan definition."""
+    __tablename__ = 'subscription_plans'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    
+    name = db.Column(db.String(100), nullable=False)  # "Monthly Unlimited"
+    description = db.Column(db.Text)
+    
+    # Pricing
+    price = db.Column(db.Numeric(10, 2), nullable=False)
+    currency = db.Column(db.String(3), default='INR')
+    billing_cycle = db.Column(db.String(20), default='MONTHLY')  # MONTHLY, QUARTERLY, YEARLY
+    
+    # Benefits
+    classes_per_month = db.Column(db.Integer)  # null = unlimited
+    includes_private = db.Column(db.Integer, default=0)  # Private sessions included
+    
+    # Razorpay Plan ID (for recurring billing)
+    provider_plan_id = db.Column(db.String(100))
+    
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'studio_id': self.studio_id,
+            'name': self.name,
+            'description': self.description,
+            'price': float(self.price) if self.price else 0,
+            'currency': self.currency,
+            'billing_cycle': self.billing_cycle,
+            'classes_per_month': self.classes_per_month,
+            'includes_private': self.includes_private,
+            'is_active': self.is_active,
+        }
+
+
+class Subscription(db.Model):
+    """Customer subscription instance."""
+    __tablename__ = 'subscriptions'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=False)
+    plan_id = db.Column(db.String(36), db.ForeignKey('subscription_plans.id'), nullable=False)
+    
+    # Provider subscription
+    provider = db.Column(db.String(20), default='RAZORPAY')
+    provider_subscription_id = db.Column(db.String(100))
+    provider_customer_id = db.Column(db.String(100))
+    
+    # Billing dates
+    started_at = db.Column(db.DateTime, nullable=False)
+    current_period_start = db.Column(db.DateTime)
+    current_period_end = db.Column(db.DateTime)
+    cancelled_at = db.Column(db.DateTime)
+    
+    # Usage this period
+    classes_used_this_period = db.Column(db.Integer, default=0)
+    
+    # Status
+    status = db.Column(db.String(20), default='ACTIVE')  # ACTIVE, PAUSED, CANCELLED, PAST_DUE, EXPIRED
+    auto_renew = db.Column(db.Boolean, default=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    plan = db.relationship('SubscriptionPlan', backref='subscriptions')
+    
+    def to_dict(self, include_plan=False):
+        data = {
+            'id': self.id,
+            'contact_id': self.contact_id,
+            'plan_id': self.plan_id,
+            'status': self.status,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'current_period_start': self.current_period_start.isoformat() if self.current_period_start else None,
+            'current_period_end': self.current_period_end.isoformat() if self.current_period_end else None,
+            'classes_used_this_period': self.classes_used_this_period,
+            'auto_renew': self.auto_renew,
+        }
+        if include_plan and self.plan:
+            data['plan'] = self.plan.to_dict()
+        return data
+
+
+class Wallet(db.Model):
+    """Customer wallet for credits/refunds."""
+    __tablename__ = 'wallets'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=False, unique=True)
+    
+    balance = db.Column(db.Numeric(10, 2), default=0)
+    currency = db.Column(db.String(3), default='INR')
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    transactions = db.relationship('WalletTransaction', backref='wallet', lazy='dynamic')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'contact_id': self.contact_id,
+            'balance': float(self.balance) if self.balance else 0,
+            'currency': self.currency,
+        }
+
+
+class WalletTransaction(db.Model):
+    """Wallet credit/debit history."""
+    __tablename__ = 'wallet_transactions'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    wallet_id = db.Column(db.String(36), db.ForeignKey('wallets.id'), nullable=False)
+    
+    type = db.Column(db.String(10), nullable=False)  # CREDIT, DEBIT
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    balance_after = db.Column(db.Numeric(10, 2), nullable=False)
+    
+    description = db.Column(db.String(255))
+    reference_type = db.Column(db.String(50))  # booking, payment, refund, manual
+    reference_id = db.Column(db.String(36))
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'wallet_id': self.wallet_id,
+            'type': self.type,
+            'amount': float(self.amount) if self.amount else 0,
+            'balance_after': float(self.balance_after) if self.balance_after else 0,
+            'description': self.description,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class DiscountCode(db.Model):
+    """Discount/promo codes."""
+    __tablename__ = 'discount_codes'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    
+    code = db.Column(db.String(20), nullable=False, unique=True)  # NEW2025
+    description = db.Column(db.String(255))
+    
+    # Discount type
+    discount_type = db.Column(db.String(20), default='PERCENTAGE')  # PERCENTAGE, FIXED
+    discount_value = db.Column(db.Numeric(10, 2), nullable=False)  # 10 for 10% or ₹10
+    
+    # Limits
+    max_uses = db.Column(db.Integer)  # null = unlimited
+    uses_count = db.Column(db.Integer, default=0)
+    max_uses_per_user = db.Column(db.Integer, default=1)
+    
+    # Minimum purchase
+    minimum_amount = db.Column(db.Numeric(10, 2), default=0)
+    
+    # Validity
+    valid_from = db.Column(db.DateTime)
+    valid_until = db.Column(db.DateTime)
+    
+    # Restrictions
+    applicable_to = db.Column(db.JSON)  # ["CLASS_PACK", "SUBSCRIPTION"] or null for all
+    
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'code': self.code,
+            'description': self.description,
+            'discount_type': self.discount_type,
+            'discount_value': float(self.discount_value) if self.discount_value else 0,
+            'max_uses': self.max_uses,
+            'uses_count': self.uses_count,
+            'valid_from': self.valid_from.isoformat() if self.valid_from else None,
+            'valid_until': self.valid_until.isoformat() if self.valid_until else None,
+            'is_active': self.is_active,
+        }

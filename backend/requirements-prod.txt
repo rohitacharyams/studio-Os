@@ -1,0 +1,40 @@
+# Production requirements for Studio OS Backend
+# Install with: pip install -r requirements-prod.txt
+
+# Core Flask
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-JWT-Extended==4.6.0
+Flask-Migrate==4.0.5
+Flask-CORS==4.0.0
+
+# Database - PostgreSQL for production
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
+
+# Production server
+gunicorn==21.2.0
+
+# Redis for caching/sessions
+redis==5.0.1
+
+# AI/LLM
+openai==1.6.1
+anthropic==0.8.1
+
+# Payment
+razorpay==1.4.1
+
+# Notifications
+twilio==8.10.0
+sendgrid==6.11.0
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+Werkzeug==3.0.1
+PyJWT==2.8.0
+
+# Azure specific
+azure-identity==1.15.0
+azure-storage-blob==12.19.0

@@ -9,7 +9,9 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Calendar,
+  Ticket
 } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'
@@ -17,6 +19,8 @@ import clsx from 'clsx'
 const navigation = [
   { name: 'Inbox', href: '/inbox', icon: Inbox },
   { name: 'Contacts', href: '/contacts', icon: Users },
+  { name: 'Manage Classes', href: '/booking', icon: Calendar },
+  { name: 'Bookings', href: '/my-bookings', icon: Ticket },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Templates', href: '/templates', icon: FileText },
   { name: 'Knowledge', href: '/knowledge', icon: BookOpen },

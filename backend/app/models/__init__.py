@@ -606,9 +606,9 @@ class ClassSession(db.Model):
     booked_count = db.Column(db.Integer, default=0)
     waitlist_count = db.Column(db.Integer, default=0)
     
-    # Instructor
-    instructor_id = db.Column(db.String(36), db.ForeignKey('instructors.id'))
-    substitute_instructor_id = db.Column(db.String(36), db.ForeignKey('instructors.id'))
+    # Instructor (references users table - instructors are users with instructor role)
+    instructor_id = db.Column(db.String(36), db.ForeignKey('users.id'))
+    substitute_instructor_id = db.Column(db.String(36), db.ForeignKey('users.id'))
     
     # Room
     room_id = db.Column(db.String(36), db.ForeignKey('rooms.id'))

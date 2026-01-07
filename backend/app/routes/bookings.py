@@ -7,9 +7,10 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import (
-    User, Contact, ClassSession, Booking, Waitlist,
-    ClassSchedule, DanceClass, Instructor, Room, ClassPackPurchase, Subscription
+    User, Contact, ClassSession, Booking, Waitlist, Studio,
+    ClassSchedule, DanceClass, Room, ClassPackPurchase, Subscription
 )
+from app.services.notifications import notification_service
 
 bookings_bp = Blueprint('bookings', __name__, url_prefix='/api/bookings')
 
@@ -77,13 +78,13 @@ def list_sessions():
             dance_class = DanceClass.query.get(session.class_id)
             if dance_class:
                 session_data['class_name'] = dance_class.name
-                session_data['class_type'] = dance_class.style
+                session_data['class_type'] = dance_class.dance_style
                 session_data['level'] = dance_class.level
-                session_data['drop_in_price'] = float(dance_class.drop_in_price) if dance_class.drop_in_price else 0
+                session_data['drop_in_price'] = float(dance_class.price) if dance_class.price else 0
         
         # Add instructor info
         if session.instructor_id:
-            instructor = Instructor.query.get(session.instructor_id)
+            instructor = User.query.get(session.instructor_id)
             if instructor:
                 session_data['instructor_name'] = instructor.name
         
@@ -128,7 +129,7 @@ def get_session(session_id):
     
     # Add instructor info
     if session.instructor_id:
-        instructor = Instructor.query.get(session.instructor_id)
+        instructor = User.query.get(session.instructor_id)
         if instructor:
             session_data['instructor'] = instructor.to_dict()
     
@@ -380,6 +381,22 @@ def create_booking():
     db.session.add(booking)
     db.session.commit()
     
+    # Send confirmation notification
+    try:
+        contact = Contact.query.get(data['contact_id'])
+        studio = Studio.query.get(user.studio_id)
+        if contact and studio:
+            notification_service.send_booking_confirmation(
+                booking=booking,
+                session=session,
+                contact=contact,
+                studio=studio
+            )
+    except Exception as e:
+        # Log but don't fail booking on notification error
+        import logging
+        logging.error(f"Failed to send booking confirmation: {e}")
+    
     return jsonify({
         'message': 'Booking confirmed',
         'booking': booking.to_dict()
@@ -518,6 +535,22 @@ def cancel_booking(booking_id):
         promote_from_waitlist(session)
     
     db.session.commit()
+    
+    # Send cancellation notification
+    try:
+        contact = Contact.query.get(booking.contact_id)
+        studio = Studio.query.get(user.studio_id)
+        if contact and studio and session:
+            notification_service.send_booking_cancellation(
+                booking=booking,
+                session=session,
+                contact=contact,
+                studio=studio,
+                refund_amount=0  # Calculate actual refund if payment was made
+            )
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send cancellation notification: {e}")
     
     return jsonify({
         'message': 'Booking cancelled',

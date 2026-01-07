@@ -35,6 +35,9 @@ celery==5.3.4
 # Payment Providers
 razorpay==1.4.1
 
+# Notifications
+sendgrid==6.11.0
+
 # Utilities
 bcrypt==4.1.2
 python-dateutil==2.8.2

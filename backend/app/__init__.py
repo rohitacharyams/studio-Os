@@ -4,6 +4,7 @@ from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from flask_cors import CORS
 import redis
+import os
 
 from app.config import config
 
@@ -27,9 +28,24 @@ def create_app(config_name='default'):
     migrate.init_app(app, db)
     CORS(app, origins=app.config['CORS_ORIGINS'], supports_credentials=True)
     
-    # Initialize Redis
+    # Initialize Redis (with fallback for environments without Redis)
     global redis_client
-    redis_client = redis.from_url(app.config['REDIS_URL'])
+    try:
+        redis_client = redis.from_url(app.config['REDIS_URL'])
+        redis_client.ping()  # Test connection
+    except (redis.ConnectionError, redis.RedisError):
+        redis_client = None
+        app.logger.warning("Redis not available, caching disabled")
+    
+    # Add security headers in production
+    if not app.debug:
+        @app.after_request
+        def add_security_headers(response):
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            response.headers['X-Frame-Options'] = 'DENY'
+            response.headers['X-XSS-Protection'] = '1; mode=block'
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            return response
     
     # Register blueprints
     from app.routes.auth import auth_bp
@@ -46,6 +62,7 @@ def create_app(config_name='default'):
     from app.routes.scheduling import scheduling_bp
     from app.routes.bookings import bookings_bp
     from app.routes.payments import payments_bp
+    from app.routes.whatsapp import bp as whatsapp_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(conversations_bp, url_prefix='/api/conversations')
@@ -61,6 +78,7 @@ def create_app(config_name='default'):
     app.register_blueprint(scheduling_bp, url_prefix='/api/scheduling')
     app.register_blueprint(bookings_bp)  # Already has /api/bookings prefix
     app.register_blueprint(payments_bp)  # Already has /api/payments prefix
+    app.register_blueprint(whatsapp_bp, url_prefix='/api/whatsapp')
     
     # Health check endpoint
     @app.route('/health')

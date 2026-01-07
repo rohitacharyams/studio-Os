@@ -1,0 +1,30 @@
+# Render.com Blueprint - FREE backend hosting
+# Deploy at: https://dashboard.render.com/blueprints
+
+services:
+  - type: web
+    name: studio-os-api
+    runtime: python
+    region: singapore  # Close to India
+    plan: free  # FREE tier!
+    buildCommand: pip install -r requirements-prod.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false  # Set manually from Neon.tech
+      - key: GROQ_API_KEY
+        sync: false  # Get free from console.groq.com
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false  # Your Netlify URL
+    healthCheckPath: /health
+    autoDeploy: true

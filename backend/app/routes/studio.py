@@ -56,6 +56,75 @@ def update_studio():
         return jsonify({'error': str(e)}), 500
 
 
+@studio_bp.route('/settings', methods=['GET'])
+@jwt_required()
+def get_settings():
+    """Get all studio settings."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    studio = user.studio
+    return jsonify({
+        'settings': {
+            'email_settings': studio.email_settings or {},
+            'whatsapp_settings': studio.whatsapp_settings or {},
+            'instagram_settings': studio.instagram_settings or {}
+        }
+    })
+
+
+@studio_bp.route('/settings', methods=['PUT'])
+@jwt_required()
+def update_settings():
+    """Update studio settings (general)."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    if user.role not in ['owner', 'admin']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
+    data = request.get_json()
+    studio = user.studio
+    
+    # Update settings based on what's passed
+    settings = data.get('settings', {})
+    
+    # Merge with existing settings
+    if 'email_settings' in settings:
+        studio.email_settings = {**(studio.email_settings or {}), **settings['email_settings']}
+    if 'whatsapp_settings' in settings:
+        studio.whatsapp_settings = {**(studio.whatsapp_settings or {}), **settings['whatsapp_settings']}
+    if 'instagram_settings' in settings:
+        studio.instagram_settings = {**(studio.instagram_settings or {}), **settings['instagram_settings']}
+    
+    # Store any additional settings in whatsapp_settings as a catch-all for now
+    for key, value in settings.items():
+        if key not in ['email_settings', 'whatsapp_settings', 'instagram_settings']:
+            if not studio.whatsapp_settings:
+                studio.whatsapp_settings = {}
+            studio.whatsapp_settings[key] = value
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'settings': {
+                'email_settings': studio.email_settings or {},
+                'whatsapp_settings': studio.whatsapp_settings or {},
+                'instagram_settings': studio.instagram_settings or {}
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @studio_bp.route('/settings/email', methods=['GET'])
 @jwt_required()
 def get_email_settings():

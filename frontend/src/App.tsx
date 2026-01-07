@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/authStore'
 import Layout from '@/components/Layout'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
+import OnboardingPage from '@/pages/OnboardingPage'
 import InboxPage from '@/pages/InboxPage'
 import ConversationPage from '@/pages/ConversationPage'
 import ContactsPage from '@/pages/ContactsPage'
@@ -10,6 +11,10 @@ import AnalyticsPage from '@/pages/AnalyticsPage'
 import TemplatesPage from '@/pages/TemplatesPage'
 import SettingsPage from '@/pages/SettingsPage'
 import KnowledgePage from '@/pages/KnowledgePage'
+import BookingPage from '@/pages/BookingPage'
+import CheckoutPage from '@/pages/CheckoutPage'
+import MyBookingsPage from '@/pages/MyBookingsPage'
+import PublicBookingPage from '@/pages/PublicBookingPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore()
@@ -34,6 +39,8 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/book/:studioSlug" element={<PublicBookingPage />} />
       
       <Route path="/" element={
         <PrivateRoute>
@@ -48,6 +55,9 @@ function App() {
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="knowledge" element={<KnowledgePage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="booking" element={<BookingPage />} />
+        <Route path="checkout" element={<CheckoutPage />} />
+        <Route path="my-bookings" element={<MyBookingsPage />} />
       </Route>
     </Routes>
   )

@@ -7,6 +7,7 @@ from .base import BaseLLMProvider, LLMConfig, LLMMessage, LLMResponse, LLMCapabi
 from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
 from .gemini_provider import GeminiProvider
+from .groq_provider import GroqProvider
 from .ollama_provider import OllamaProvider
 
 
@@ -37,16 +38,17 @@ class LLMRegistry:
         'openai': OpenAIProvider,
         'anthropic': AnthropicProvider,
         'gemini': GeminiProvider,
+        'groq': GroqProvider,  # FREE tier available!
         'ollama': OllamaProvider,
     }
     
-    # Default agent configurations
+    # Default agent configurations - Using Groq (FREE) as default!
     DEFAULT_AGENTS: Dict[str, AgentConfig] = {
         'smart_reply': AgentConfig(
             name='Smart Reply Agent',
             description='Generates contextual reply suggestions for conversations',
-            provider='openai',
-            model='gpt-4o-mini',
+            provider='groq',  # FREE!
+            model='llama-3.3-70b-versatile',
             system_prompt="""You are a helpful assistant for a dance studio. 
 Generate professional, friendly replies to inquiries about classes, pricing, and schedules.
 Use the knowledge base provided to give accurate information.
@@ -57,8 +59,8 @@ Keep responses concise but warm and inviting.""",
         'lead_scoring': AgentConfig(
             name='Lead Scoring Agent',
             description='Analyzes conversations to score lead quality',
-            provider='openai',
-            model='gpt-4o-mini',
+            provider='groq',  # FREE!
+            model='llama-3.3-70b-versatile',
             system_prompt="""You are a lead qualification expert for a dance studio.
 Analyze conversation history and assign a lead score from 0-100 based on:
 - Intent to purchase (40 points)
@@ -72,8 +74,8 @@ Return JSON with: score, confidence, factors, next_action.""",
         'conversation_analysis': AgentConfig(
             name='Conversation Analysis Agent',
             description='Extracts insights and action items from conversations',
-            provider='openai',
-            model='gpt-4o-mini',
+            provider='groq',  # FREE!
+            model='llama-3.3-70b-versatile',
             system_prompt="""Analyze dance studio conversations to extract:
 - Customer intent and needs
 - Mentioned dance styles of interest
@@ -88,8 +90,8 @@ Return structured JSON analysis.""",
         'scheduling': AgentConfig(
             name='Scheduling Optimization Agent',
             description='Optimizes class schedules based on constraints',
-            provider='openai',
-            model='gpt-4o',
+            provider='groq',  # FREE!
+            model='llama-3.3-70b-versatile',
             system_prompt="""You are a scheduling optimization expert.
 Given instructor availability, room capacity, and student demand,
 suggest optimal class schedules that maximize utilization and minimize conflicts.

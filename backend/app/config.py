@@ -1,18 +1,40 @@
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
+from urllib.parse import quote_plus
 
 load_dotenv()
 
 
 def get_database_url():
     """Get database URL with SQLite fallback for development."""
+    # Check for explicit DATABASE_URL first
     url = os.getenv('DATABASE_URL')
     if url:
         # Azure/Heroku sometimes use postgres:// instead of postgresql://
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
         return url
+    
+    # Check for Azure SQL Server configuration
+    sql_server = os.getenv('SQL_SERVER')
+    sql_database = os.getenv('SQL_DATABASE')
+    sql_user = os.getenv('SQL_USER')
+    sql_password = os.getenv('SQL_PASSWORD')
+    
+    if sql_server and sql_database and sql_user and sql_password:
+        # Azure SQL connection string using pyodbc
+        params = quote_plus(
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={sql_server};"
+            f"DATABASE={sql_database};"
+            f"UID={sql_user};"
+            f"PWD={sql_password};"
+            f"Encrypt=yes;"
+            f"TrustServerCertificate=no;"
+        )
+        return f"mssql+pyodbc:///?odbc_connect={params}"
+    
     # Default to SQLite for local development
     return 'sqlite:///studio_os.db'
 

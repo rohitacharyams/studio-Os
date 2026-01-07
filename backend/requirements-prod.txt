@@ -8,8 +8,8 @@ Flask-JWT-Extended==4.6.0
 Flask-Migrate==4.0.5
 Flask-CORS==4.0.0
 
-# Database - PostgreSQL for production
-psycopg2-binary==2.9.9
+# Database - Azure SQL Server support
+pyodbc==5.0.1
 SQLAlchemy==2.0.23
 
 # Production server
@@ -21,6 +21,7 @@ redis==5.0.1
 # AI/LLM
 openai==1.6.1
 anthropic==0.8.1
+httpx==0.26.0
 
 # Payment
 razorpay==1.4.1

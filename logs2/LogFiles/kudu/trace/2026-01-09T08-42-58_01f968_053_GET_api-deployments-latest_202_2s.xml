@@ -1,0 +1,9 @@
+<step title="Incoming Request" date="2026-01-09T08:42:58.519" instance="01f968" url="/api/deployments/latest" method="GET" type="request" pid="768,1,24" Accept="*/*" Host="studioos-api.scm.azurewebsites.net" User-Agent="AZURECLI/2.47.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bas..." Cache-Control="no-cache" Content-Type="application/octet-stream" Content-Length="0" x-ms-client-request-id="92dfca91-ed36-11f0-83ac-00224894b255" X-ARR-LOG-ID="92dfca91-ed36-11f0-83ac-00224894b255" CLIENT-IP="13.70.96.94:22791" X-SITE-DEPLOYMENT-ID="studioos-api" WAS-DEFAULT-HOSTNAME="studioos-api.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest" X-Client-IP="13.70.96.94" X-Client-Port="22791" >
+  <step title="Cleanup Xml Logs" date="2026-01-09T08:42:58.546" /><!-- duration: 111ms -->
+  <step title="DeploymentService.GetResult" date="2026-01-09T08:42:58.736" >
+    <step title="DeploymentService.GetLatestDeployment" date="2026-01-09T08:42:58.766" >
+      <step title="DeploymentManager.GetResults" date="2026-01-09T08:42:58.780" /><!-- duration: 1272ms -->
+    </step><!-- duration: 1320ms -->
+  </step><!-- duration: 1378ms -->
+  <step title="Outgoing response" date="2026-01-09T08:43:00.154" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 49ms -->
+</step><!-- duration: 1727ms -->

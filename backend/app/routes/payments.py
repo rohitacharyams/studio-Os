@@ -1,5 +1,6 @@
 """
 Payment API routes for Razorpay integration, checkout, and payment management.
+Supports both real Razorpay payments and Demo/Mock mode for testing.
 """
 import os
 import uuid
@@ -17,6 +18,315 @@ from app.models import (
 )
 
 payments_bp = Blueprint('payments', __name__, url_prefix='/api/payments')
+
+
+def is_demo_mode():
+    """Check if payment system is in demo/mock mode."""
+    # Demo mode is enabled when RAZORPAY_KEY_ID is not set or is 'demo'
+    key_id = os.getenv('RAZORPAY_KEY_ID', '')
+    return not key_id or key_id == 'demo' or key_id.startswith('demo_')
+
+
+# ============================================================
+# DEMO/MOCK PAYMENT SYSTEM
+# ============================================================
+
+@payments_bp.route('/demo/status', methods=['GET'])
+def demo_status():
+    """Check if payment system is in demo mode."""
+    demo = is_demo_mode()
+    return jsonify({
+        'demo_mode': demo,
+        'message': 'Demo mode enabled - payments are simulated' if demo else 'Live mode - real payments',
+        'test_cards': {
+            'success': '4111 1111 1111 1111',
+            'decline': '4000 0000 0000 0002',
+            'insufficient_funds': '4000 0000 0000 9995'
+        } if demo else None
+    })
+
+
+@payments_bp.route('/demo/create-order', methods=['POST'])
+@jwt_required()
+def demo_create_order():
+    """Create a demo/mock order for testing payments without Razorpay."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    
+    # Validate required fields
+    if 'contact_id' not in data:
+        return jsonify({'error': 'contact_id is required'}), 400
+    if 'amount' not in data:
+        return jsonify({'error': 'amount is required'}), 400
+    if 'purchase_type' not in data:
+        return jsonify({'error': 'purchase_type is required'}), 400
+    
+    contact = Contact.query.filter_by(
+        id=data['contact_id'],
+        studio_id=user.studio_id
+    ).first()
+    
+    if not contact:
+        return jsonify({'error': 'Contact not found'}), 404
+    
+    # Calculate amounts
+    amount = Decimal(str(data['amount']))
+    
+    # Apply discount
+    discount_amount, discount_error = calculate_discount(
+        amount, 
+        data.get('discount_code'),
+        user.studio_id
+    )
+    
+    if discount_error and data.get('discount_code'):
+        return jsonify({'error': discount_error}), 400
+    
+    subtotal = amount - discount_amount
+    tax_rate = Decimal('18')
+    tax_amount = subtotal * (tax_rate / Decimal('100'))
+    total_amount = subtotal + tax_amount
+    
+    # Check wallet balance if requested
+    wallet_deduction = Decimal('0')
+    if data.get('use_wallet'):
+        wallet = Wallet.query.filter_by(contact_id=data['contact_id']).first()
+        if wallet and wallet.balance > 0:
+            wallet_deduction = min(wallet.balance, total_amount)
+            total_amount -= wallet_deduction
+    
+    # Generate demo order ID
+    demo_order_id = f"demo_order_{uuid.uuid4().hex[:16]}"
+    
+    # Create payment record
+    payment = Payment(
+        id=str(uuid.uuid4()),
+        payment_number=generate_payment_number(),
+        studio_id=user.studio_id,
+        contact_id=data['contact_id'],
+        amount=amount,
+        currency=data.get('currency', 'INR'),
+        tax_amount=tax_amount,
+        tax_rate=tax_rate,
+        discount_code=data.get('discount_code'),
+        discount_amount=discount_amount,
+        total_amount=total_amount,
+        provider='DEMO',
+        purchase_type=data['purchase_type'],
+        purchase_description=data.get('description', ''),
+        status='PENDING',
+        provider_order_id=demo_order_id
+    )
+    
+    db.session.add(payment)
+    
+    # Deduct from wallet if applicable
+    if wallet_deduction > 0:
+        wallet = Wallet.query.filter_by(contact_id=data['contact_id']).first()
+        wallet.balance -= wallet_deduction
+        
+        transaction = WalletTransaction(
+            id=str(uuid.uuid4()),
+            wallet_id=wallet.id,
+            type='DEBIT',
+            amount=wallet_deduction,
+            balance_after=wallet.balance,
+            description=f'Payment for {data["purchase_type"]}',
+            reference_type='payment',
+            reference_id=payment.id
+        )
+        db.session.add(transaction)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'payment_id': payment.id,
+        'demo_order_id': demo_order_id,
+        'demo_mode': True,
+        'amount': float(amount),
+        'discount_amount': float(discount_amount),
+        'tax_amount': float(tax_amount),
+        'wallet_deduction': float(wallet_deduction),
+        'total_amount': float(total_amount),
+        'currency': payment.currency,
+        'contact': {
+            'name': contact.name,
+            'email': contact.email,
+            'phone': contact.phone
+        },
+        'test_cards': {
+            'success': '4111 1111 1111 1111',
+            'decline': '4000 0000 0000 0002'
+        }
+    })
+
+
+@payments_bp.route('/demo/complete', methods=['POST'])
+@jwt_required()
+def demo_complete_payment():
+    """
+    Complete a demo payment - simulates successful payment.
+    Use card_number '4111 1111 1111 1111' for success, '4000 0000 0000 0002' for decline.
+    """
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    data = request.get_json()
+    
+    if 'payment_id' not in data:
+        return jsonify({'error': 'payment_id is required'}), 400
+    
+    # Optional: simulate card behavior
+    card_number = data.get('card_number', '4111111111111111').replace(' ', '')
+    
+    # Get payment record
+    payment = Payment.query.filter_by(
+        id=data['payment_id'],
+        studio_id=user.studio_id
+    ).first()
+    
+    if not payment:
+        return jsonify({'error': 'Payment not found'}), 404
+    
+    if payment.status == 'COMPLETED':
+        return jsonify({'error': 'Payment already completed'}), 400
+    
+    # Simulate card responses
+    if card_number == '4000000000000002':
+        payment.status = 'FAILED'
+        payment.failure_reason = 'Card declined (test card)'
+        db.session.commit()
+        return jsonify({
+            'success': False,
+            'error': 'Card declined',
+            'demo_mode': True
+        }), 400
+    
+    if card_number == '4000000000009995':
+        payment.status = 'FAILED'
+        payment.failure_reason = 'Insufficient funds (test card)'
+        db.session.commit()
+        return jsonify({
+            'success': False,
+            'error': 'Insufficient funds',
+            'demo_mode': True
+        }), 400
+    
+    # Success case
+    payment.status = 'COMPLETED'
+    payment.provider_payment_id = f"demo_pay_{uuid.uuid4().hex[:16]}"
+    payment.completed_at = datetime.utcnow()
+    payment.invoice_number = generate_invoice_number(user.studio_id)
+    payment.payment_method = 'DEMO_CARD'
+    payment.payment_method_details = {
+        'card_last4': card_number[-4:],
+        'demo': True
+    }
+    
+    # Activate the purchase
+    activate_purchase(payment)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Demo payment completed successfully!',
+        'demo_mode': True,
+        'payment': payment.to_dict(),
+        'invoice_number': payment.invoice_number
+    })
+
+
+@payments_bp.route('/demo/quick-payment', methods=['POST'])
+@jwt_required()
+def demo_quick_payment():
+    """
+    Single-step demo payment - creates and completes payment in one call.
+    Perfect for quick testing and demos.
+    """
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    
+    # Validate required fields
+    if 'contact_id' not in data:
+        return jsonify({'error': 'contact_id is required'}), 400
+    if 'amount' not in data:
+        return jsonify({'error': 'amount is required'}), 400
+    if 'purchase_type' not in data:
+        return jsonify({'error': 'purchase_type is required'}), 400
+    
+    contact = Contact.query.filter_by(
+        id=data['contact_id'],
+        studio_id=user.studio_id
+    ).first()
+    
+    if not contact:
+        return jsonify({'error': 'Contact not found'}), 404
+    
+    # Calculate amounts
+    amount = Decimal(str(data['amount']))
+    discount_amount, _ = calculate_discount(amount, data.get('discount_code'), user.studio_id)
+    subtotal = amount - discount_amount
+    tax_rate = Decimal('18')
+    tax_amount = subtotal * (tax_rate / Decimal('100'))
+    total_amount = subtotal + tax_amount
+    
+    # Create completed payment record
+    payment = Payment(
+        id=str(uuid.uuid4()),
+        payment_number=generate_payment_number(),
+        studio_id=user.studio_id,
+        contact_id=data['contact_id'],
+        amount=amount,
+        currency=data.get('currency', 'INR'),
+        tax_amount=tax_amount,
+        tax_rate=tax_rate,
+        discount_code=data.get('discount_code'),
+        discount_amount=discount_amount,
+        total_amount=total_amount,
+        provider='DEMO',
+        purchase_type=data['purchase_type'],
+        purchase_description=data.get('description', 'Demo payment'),
+        status='COMPLETED',
+        provider_order_id=f"demo_order_{uuid.uuid4().hex[:12]}",
+        provider_payment_id=f"demo_pay_{uuid.uuid4().hex[:12]}",
+        completed_at=datetime.utcnow(),
+        invoice_number=generate_invoice_number(user.studio_id),
+        payment_method='DEMO',
+        payment_method_details={'demo': True, 'instant': True}
+    )
+    
+    db.session.add(payment)
+    
+    # Activate the purchase
+    activate_purchase(payment)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Demo payment completed instantly!',
+        'demo_mode': True,
+        'payment': payment.to_dict(),
+        'invoice_number': payment.invoice_number,
+        'amounts': {
+            'subtotal': float(amount),
+            'discount': float(discount_amount),
+            'tax': float(tax_amount),
+            'total': float(total_amount)
+        }
+    })
+
 
 # Razorpay client (initialized lazily)
 _razorpay_client = None

@@ -26,7 +26,15 @@ def create_app(config_name='default'):
     db.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
-    CORS(app, origins=app.config['CORS_ORIGINS'], supports_credentials=True)
+    
+    # CORS configuration - support wildcard or specific origins
+    cors_origins = app.config['CORS_ORIGINS']
+    if cors_origins == ['*'] or '*' in cors_origins:
+        # Wildcard: allow all origins (no credentials support)
+        CORS(app, origins='*', supports_credentials=False)
+    else:
+        # Specific origins: allow credentials
+        CORS(app, origins=cors_origins, supports_credentials=True)
     
     # Initialize Redis (with fallback for environments without Redis)
     global redis_client

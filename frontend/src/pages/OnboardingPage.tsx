@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Building2, MessageSquare, Calendar, CreditCard, Link2, 
-  Check, ChevronRight, ChevronLeft, Loader2, Upload,
+  Check, ChevronRight, ChevronLeft, Loader2,
   Instagram, Mail, Phone, Globe, MapPin, Clock
 } from 'lucide-react';
 import api from '../lib/api';
@@ -106,31 +106,39 @@ export default function OnboardingPage() {
       return;
     }
     
-    // Save progress
-    if (currentStep === 0) {
-      setLoading(true);
-      try {
-        await api.put('/studio/settings', {
-          settings: {
-            ...studioData,
-            onboarding_step: 1
-          }
-        });
-      } catch (err) {
-        console.error('Failed to save studio settings:', err);
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    try {
+      // Save progress to backend using new onboarding endpoint
+      const stepData: any = {};
+      
+      if (currentStep === 0) {
+        Object.assign(stepData, studioData);
+      } else if (currentStep === 1) {
+        stepData.whatsapp = channels.whatsapp;
+        stepData.gmail = channels.gmail;
+        stepData.instagram = channels.instagram;
+      } else if (currentStep === 2) {
+        stepData.classes = classes;
+      } else if (currentStep === 3) {
+        stepData.razorpay_key_id = paymentSetup.razorpayKeyId;
+        stepData.razorpay_key_secret = paymentSetup.razorpayKeySecret;
       }
-    }
-    
-    // Generate booking link on final step
-    if (currentStep === 4) {
-      const slug = studioData.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-      setBookingLink(`${window.location.origin}/book/${slug}`);
-    }
-    
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
+      
+      const response = await api.post(`/studio/onboarding/step/${currentStep}`, stepData);
+      
+      // Update booking link from server response (uses correct slug)
+      if (response.data.booking_link) {
+        setBookingLink(`${window.location.origin}${response.data.booking_link}`);
+      }
+      
+      if (currentStep < steps.length - 1) {
+        setCurrentStep(currentStep + 1);
+      }
+    } catch (err: any) {
+      console.error('Failed to save onboarding step:', err);
+      setError(err.response?.data?.error || 'Failed to save. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -187,32 +195,13 @@ export default function OnboardingPage() {
   const handleFinish = async () => {
     setLoading(true);
     try {
-      // Save classes
-      for (const classData of classes) {
-        if (classData.name) {
-          await api.post('/scheduling/classes', {
-            name: classData.name,
-            style: classData.style,
-            level: classData.level,
-            drop_in_price: classData.price,
-            duration_minutes: classData.duration,
-            max_students: classData.capacity
-          });
-        }
-      }
-      
       // Mark onboarding complete
-      await api.put('/studio/settings', {
-        settings: {
-          onboarding_complete: true,
-          booking_slug: studioData.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
-        }
-      });
+      await api.post('/studio/onboarding/complete');
       
-      navigate('/inbox');
+      // Refresh user data to get updated studio info
+      window.location.href = '/inbox';
     } catch (err) {
       setError('Failed to complete setup. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

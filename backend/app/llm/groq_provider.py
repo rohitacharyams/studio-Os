@@ -114,17 +114,18 @@ class GroqProvider(BaseLLMProvider):
                 choice = data['choices'][0]
                 message = choice['message']
                 
-                # Handle function calls
-                function_call = None
+                # Handle function calls - store in raw_response if present
+                content = message.get('content', '')
                 if message.get('tool_calls'):
                     tool_call = message['tool_calls'][0]
-                    function_call = {
+                    # Include function call info in raw_response
+                    data['function_call'] = {
                         'name': tool_call['function']['name'],
                         'arguments': tool_call['function']['arguments']
                     }
                 
                 return LLMResponse(
-                    content=message.get('content', ''),
+                    content=content,
                     model=data['model'],
                     provider=self.name,
                     usage={
@@ -132,7 +133,6 @@ class GroqProvider(BaseLLMProvider):
                         'completion_tokens': data['usage']['completion_tokens'],
                         'total_tokens': data['usage']['total_tokens']
                     },
-                    function_call=function_call,
                     raw_response=data
                 )
                 
@@ -163,6 +163,14 @@ class GroqProvider(BaseLLMProvider):
                 message_dict['name'] = msg.name
             result.append(message_dict)
         return result
+    
+    async def complete(self, prompt: str, **kwargs) -> LLMResponse:
+        """
+        Send a completion request (non-chat) to Groq.
+        Groq uses chat API, so we wrap the prompt as a user message.
+        """
+        messages = [LLMMessage(role='user', content=prompt)]
+        return await self.chat(messages, **kwargs)
     
     async def stream_chat(self, messages: List[LLMMessage], **kwargs):
         """Stream chat completion from Groq."""

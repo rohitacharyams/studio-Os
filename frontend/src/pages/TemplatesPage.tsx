@@ -71,7 +71,7 @@ export default function TemplatesPage() {
           className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="ALL">All Categories</option>
-          {categories.map((cat) => (
+          {categories.map((cat) => cat && (
             <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
@@ -193,7 +193,13 @@ function TemplateModal({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    category: string;
+    subject: string;
+    content: string;
+    channels: ('EMAIL' | 'WHATSAPP' | 'INSTAGRAM')[];
+  }>({
     name: template?.name || '',
     category: template?.category || '',
     subject: template?.subject || '',
@@ -226,7 +232,7 @@ function TemplateModal({
     mutation.mutate(formData)
   }
 
-  const toggleChannel = (channel: string) => {
+  const toggleChannel = (channel: 'EMAIL' | 'WHATSAPP' | 'INSTAGRAM') => {
     const channels = formData.channels.includes(channel)
       ? formData.channels.filter((c) => c !== channel)
       : [...formData.channels, channel]

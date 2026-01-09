@@ -90,29 +90,65 @@ export default function PublicBookingPage() {
   const fetchStudioAndSessions = async () => {
     setLoading(true);
     try {
-      // In production, fetch by slug
-      // For now, use demo data
+      // Fetch studio info by slug
+      const response = await api.get(`/studio/public/${studioSlug}`);
+      const studioData = response.data.studio;
+      
+      setStudio({
+        name: studioData.name,
+        address: studioData.address ? `${studioData.address}${studioData.city ? ', ' + studioData.city : ''}` : undefined,
+        phone: studioData.phone,
+        logo: studioData.logo_url,
+        description: `Welcome to ${studioData.name}! Book your favorite classes online.`
+      });
+      
+      // Fetch available sessions for the week
+      const startDate = weekStart.toISOString().split('T')[0];
+      const endDate = new Date(weekStart);
+      endDate.setDate(endDate.getDate() + 7);
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
+      try {
+        const sessionsResponse = await api.get(`/bookings/public/sessions/${studioSlug}?start_date=${startDate}&end_date=${endDateStr}`);
+        setSessions(sessionsResponse.data.sessions || []);
+      } catch {
+        // If no sessions endpoint, use class data to generate demo sessions
+        const classes = response.data.classes || [];
+        const demoSessions: ClassSession[] = [];
+        
+        classes.forEach((cls: any, idx: number) => {
+          // Create a session for each day this week
+          weekDays.forEach((day, dayIdx) => {
+            if (dayIdx % 2 === idx % 2) { // Alternate days for different classes
+              demoSessions.push({
+                id: parseInt(`${idx}${dayIdx}`),
+                class_name: cls.name,
+                style: cls.dance_style,
+                level: cls.level,
+                instructor_name: 'Instructor',
+                start_time: '18:00',
+                end_time: '19:00',
+                date: day.toISOString().split('T')[0],
+                spots_available: cls.max_capacity - Math.floor(Math.random() * 5),
+                max_students: cls.max_capacity,
+                drop_in_price: cls.price,
+                is_cancelled: false
+              });
+            }
+          });
+        });
+        setSessions(demoSessions.length > 0 ? demoSessions : generateDemoSessions());
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch studio:', err);
+      // Fallback to demo data if studio not found
       setStudio({
         name: studioSlug?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'Demo Studio',
-        address: 'Mumbai, Maharashtra',
+        address: 'Studio Address',
         phone: '+91 98765 43210',
         description: 'Welcome to our dance studio! Book your favorite classes online.'
       });
-
-      // Fetch sessions for the week
-      const startDate = weekStart.toISOString().split('T')[0];
-      const endDate = new Date(weekStart);
-      endDate.setDate(endDate.getDate() + 6);
-      
-      try {
-        const response = await api.get(`/bookings/sessions?start_date=${startDate}&end_date=${endDate.toISOString().split('T')[0]}`);
-        setSessions(response.data.sessions || []);
-      } catch {
-        // Use demo data if API fails
-        setSessions(generateDemoSessions());
-      }
-    } catch (err) {
-      setError('Failed to load studio information');
+      setSessions(generateDemoSessions());
     } finally {
       setLoading(false);
     }
@@ -288,7 +324,8 @@ export default function PublicBookingPage() {
     
     setProcessing(true);
     try {
-      const response = await api.post('/bookings', {
+      const response = await api.post('/bookings/public/book', {
+        studio_slug: studioSlug,
         session_id: selectedSession.id,
         customer_name: formData.name,
         customer_phone: formData.phone,
@@ -297,10 +334,8 @@ export default function PublicBookingPage() {
       });
       setBookingId(response.data.booking?.id || Math.floor(Math.random() * 10000));
       setBookingStep('success');
-    } catch {
-      // For demo
-      setBookingId(Math.floor(Math.random() * 10000));
-      setBookingStep('success');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to create booking');
     } finally {
       setProcessing(false);
     }

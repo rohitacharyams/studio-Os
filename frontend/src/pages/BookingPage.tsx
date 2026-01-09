@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, Clock, User, MapPin, Users, ChevronLeft, ChevronRight,
-  Check, AlertCircle, Loader2
+  Check, AlertCircle, Loader2, Plus, X
 } from 'lucide-react';
 import api from '../lib/api';
 
@@ -27,6 +27,27 @@ interface WeeklySchedule {
   [key: number]: ClassSession[];
 }
 
+interface Instructor {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface CreateClassForm {
+  name: string;
+  dance_style: string;
+  level: string;
+  duration_minutes: number;
+  max_capacity: number;
+  price: number;
+  instructor_id: string;
+  room: string;
+  start_time: string;
+  session_dates: string[];
+  description: string;
+}
+
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const levelColors: Record<string, string> = {
@@ -34,6 +55,13 @@ const levelColors: Record<string, string> = {
   intermediate: 'bg-yellow-100 text-yellow-800',
   advanced: 'bg-red-100 text-red-800',
 };
+
+const DANCE_STYLES = [
+  'Bharatanatyam', 'Kathak', 'Hip Hop', 'Contemporary', 'Salsa', 
+  'Bachata', 'Ballet', 'Jazz', 'Bollywood', 'Folk', 'Other'
+];
+
+const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'All Levels'];
 
 export default function BookingPage() {
   const navigate = useNavigate();
@@ -49,9 +77,29 @@ export default function BookingPage() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [error, setError] = useState('');
+  
+  // Create class modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateClassForm>({
+    name: '',
+    dance_style: '',
+    level: 'All Levels',
+    duration_minutes: 60,
+    max_capacity: 20,
+    price: 500,
+    instructor_id: '',
+    room: 'Main Studio',
+    start_time: '18:00',
+    session_dates: [],
+    description: ''
+  });
+  const [newDate, setNewDate] = useState('');
 
   useEffect(() => {
     fetchSchedule();
+    fetchInstructors();
   }, [weekStart]);
 
   const fetchSchedule = async () => {
@@ -66,6 +114,69 @@ export default function BookingPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchInstructors = async () => {
+    try {
+      const response = await api.get('/studio/instructors');
+      setInstructors(response.data.instructors || []);
+    } catch (err) {
+      console.error('Failed to fetch instructors:', err);
+    }
+  };
+
+  const handleCreateClass = async () => {
+    if (!createForm.name) {
+      setError('Class name is required');
+      return;
+    }
+    if (createForm.session_dates.length === 0) {
+      setError('Please add at least one class date');
+      return;
+    }
+
+    setCreateLoading(true);
+    setError('');
+
+    try {
+      await api.post('/studio/classes', createForm);
+      setShowCreateModal(false);
+      setCreateForm({
+        name: '',
+        dance_style: '',
+        level: 'All Levels',
+        duration_minutes: 60,
+        max_capacity: 20,
+        price: 500,
+        instructor_id: '',
+        room: 'Main Studio',
+        start_time: '18:00',
+        session_dates: [],
+        description: ''
+      });
+      fetchSchedule();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to create class');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const addSessionDate = () => {
+    if (newDate && !createForm.session_dates.includes(newDate)) {
+      setCreateForm({
+        ...createForm,
+        session_dates: [...createForm.session_dates, newDate].sort()
+      });
+      setNewDate('');
+    }
+  };
+
+  const removeSessionDate = (dateToRemove: string) => {
+    setCreateForm({
+      ...createForm,
+      session_dates: createForm.session_dates.filter(d => d !== dateToRemove)
+    });
   };
 
   const navigateWeek = (direction: 'prev' | 'next') => {
@@ -148,9 +259,18 @@ export default function BookingPage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Book a Class</h1>
-        <p className="text-gray-600">Browse our weekly schedule and book your spot</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Manage Classes</h1>
+          <p className="text-gray-600">Browse your weekly schedule and create new classes</p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          Create Class
+        </button>
       </div>
 
       {/* Week Navigation */}
@@ -346,6 +466,249 @@ export default function BookingPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Create Class Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Create New Class</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                <AlertCircle className="w-5 h-5" />
+                {error}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Class Name */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Class Name *
+                </label>
+                <input
+                  type="text"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="e.g., Bharatanatyam Beginners"
+                />
+              </div>
+
+              {/* Dance Style */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dance Style
+                </label>
+                <select
+                  value={createForm.dance_style}
+                  onChange={(e) => setCreateForm({ ...createForm, dance_style: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select style</option>
+                  {DANCE_STYLES.map(style => (
+                    <option key={style} value={style}>{style}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Level */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Level
+                </label>
+                <select
+                  value={createForm.level}
+                  onChange={(e) => setCreateForm({ ...createForm, level: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  {LEVELS.map(level => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Instructor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Instructor / Choreographer
+                </label>
+                <select
+                  value={createForm.instructor_id}
+                  onChange={(e) => setCreateForm({ ...createForm, instructor_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select instructor</option>
+                  {instructors.map(inst => (
+                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Room */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Room / Studio
+                </label>
+                <input
+                  type="text"
+                  value={createForm.room}
+                  onChange={(e) => setCreateForm({ ...createForm, room: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Main Studio"
+                />
+              </div>
+
+              {/* Duration */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  value={createForm.duration_minutes}
+                  onChange={(e) => setCreateForm({ ...createForm, duration_minutes: parseInt(e.target.value) || 60 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  min="15"
+                  step="15"
+                />
+              </div>
+
+              {/* Max Capacity */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Max Spots
+                </label>
+                <input
+                  type="number"
+                  value={createForm.max_capacity}
+                  onChange={(e) => setCreateForm({ ...createForm, max_capacity: parseInt(e.target.value) || 20 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  min="1"
+                />
+              </div>
+
+              {/* Price */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Price (₹)
+                </label>
+                <input
+                  type="number"
+                  value={createForm.price}
+                  onChange={(e) => setCreateForm({ ...createForm, price: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  min="0"
+                />
+              </div>
+
+              {/* Start Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  value={createForm.start_time}
+                  onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  rows={2}
+                  placeholder="Brief description of the class..."
+                />
+              </div>
+
+              {/* Class Dates */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Class Dates *
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  <button
+                    type="button"
+                    onClick={addSessionDate}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {createForm.session_dates.map(date => (
+                    <span
+                      key={date}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                    >
+                      {new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      <button
+                        type="button"
+                        onClick={() => removeSessionDate(date)}
+                        className="hover:text-purple-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                {createForm.session_dates.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-1">Add at least one date for the class</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateClass}
+                disabled={createLoading}
+                className="flex-1 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {createLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    Create Class
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -10,7 +10,7 @@ import {
   MessageCircle,
   Instagram
 } from 'lucide-react'
-import { format, subDays } from 'date-fns'
+import { format } from 'date-fns'
 import clsx from 'clsx'
 
 export default function AnalyticsPage() {

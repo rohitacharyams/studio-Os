@@ -15,11 +15,13 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import clsx from 'clsx'
+import NotificationBell from './NotificationBell'
+import ChatbotWidget from './ChatbotWidget'
 
 const navigation = [
   { name: 'Inbox', href: '/inbox', icon: Inbox },
   { name: 'Contacts', href: '/contacts', icon: Users },
-  { name: 'Manage Classes', href: '/booking', icon: Calendar },
+  { name: 'Class Calendar', href: '/calendar', icon: Calendar },
   { name: 'Bookings', href: '/my-bookings', icon: Ticket },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Templates', href: '/templates', icon: FileText },
@@ -123,15 +125,23 @@ export default function Layout() {
 
       {/* Main content */}
       <div className="lg:pl-64">
+        {/* Desktop header - top right notification bell */}
+        <header className="hidden lg:flex sticky top-0 z-30 items-center justify-end h-16 px-6 bg-white border-b border-gray-200">
+          <NotificationBell />
+        </header>
+
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-white border-b border-gray-200 lg:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 text-gray-500 hover:text-gray-700"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <span className="ml-3 font-semibold text-gray-900">Studio OS</span>
+        <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 bg-white border-b border-gray-200 lg:hidden">
+          <div className="flex items-center">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 -ml-2 text-gray-500 hover:text-gray-700"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <span className="ml-3 font-semibold text-gray-900">Studio OS</span>
+          </div>
+          <NotificationBell />
         </header>
 
         {/* Page content */}
@@ -139,6 +149,9 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* AI Chatbot Widget */}
+      <ChatbotWidget />
     </div>
   )
 }

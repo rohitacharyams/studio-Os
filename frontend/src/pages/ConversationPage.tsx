@@ -15,7 +15,7 @@ import {
   MessageCircle,
   Instagram
 } from 'lucide-react'
-import { formatDistanceToNow, format } from 'date-fns'
+import { format } from 'date-fns'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 

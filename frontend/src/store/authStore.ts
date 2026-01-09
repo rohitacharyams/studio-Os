@@ -21,13 +21,14 @@ interface RegisterData {
   email: string
   password: string
   name: string
-  studio_name: string
+  user_type: 'studio_owner' | 'customer'
+  studio_name?: string
   phone?: string
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       studio: null,
       token: null,

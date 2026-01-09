@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useInboxStore } from '@/store/inboxStore'
 import api from '@/lib/api'
 import type { Conversation, ConversationStats, Channel } from '@/types'
-import { Mail, MessageCircle, Instagram, Star, Archive, Search, Filter } from 'lucide-react'
+import { Mail, MessageCircle, Instagram, Star, Archive, Search } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import clsx from 'clsx'
 

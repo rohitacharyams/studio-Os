@@ -5,6 +5,7 @@ export interface User {
   email: string
   name: string
   role: 'owner' | 'admin' | 'staff'
+  user_type: 'studio_owner' | 'customer'
   is_active: boolean
   created_at: string
   last_login: string | null
@@ -14,10 +15,22 @@ export interface User {
 export interface Studio {
   id: string
   name: string
+  slug: string | null
   email: string
   phone: string | null
   address: string | null
+  city: string | null
+  website: string | null
+  logo_url: string | null
   timezone: string
+  currency: string
+  business_hours_open: string
+  business_hours_close: string
+  onboarding_completed: boolean
+  onboarding_step: number
+  whatsapp_connected: boolean
+  email_connected: boolean
+  instagram_connected: boolean
   created_at: string
   updated_at: string
 }

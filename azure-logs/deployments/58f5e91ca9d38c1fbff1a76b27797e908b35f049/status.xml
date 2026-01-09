@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>58f5e91ca9d38c1fbff1a76b27797e908b35f049</id>
+  <author>Rohit Acharya</author>
+  <deployer>GitHub</deployer>
+  <authorEmail>rohitacharya@microsoft.com</authorEmail>
+  <message>Add Azure SQL Server support for production deployment</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2026-01-07T14:54:57.4332131Z</lastSuccessEndTime>
+  <receivedTime>2026-01-07T14:53:17.1074083Z</receivedTime>
+  <startTime>2026-01-07T14:53:18.5243589Z</startTime>
+  <endTime>2026-01-07T14:54:57.4332131Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>False</is_readonly>
+  <buildSummary />
+</deployment>

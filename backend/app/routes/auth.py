@@ -11,57 +11,111 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    """Register a new studio and owner user."""
+    """Register a new user - either studio owner or customer."""
     data = request.get_json()
     
-    # Validate required fields
-    required_fields = ['email', 'password', 'name', 'studio_name']
-    for field in required_fields:
-        if not data.get(field):
-            return jsonify({'error': f'{field} is required'}), 400
+    user_type = data.get('user_type', 'studio_owner')  # studio_owner or customer
     
     # Check if user already exists
-    existing_user = User.query.filter_by(email=data['email']).first()
+    existing_user = User.query.filter_by(email=data.get('email')).first()
     if existing_user:
         return jsonify({'error': 'Email already registered'}), 400
     
-    # Create studio
-    studio = Studio(
-        id=str(uuid.uuid4()),
-        name=data['studio_name'],
-        email=data['email'],
-        phone=data.get('phone'),
-        address=data.get('address'),
-        timezone=data.get('timezone', 'America/New_York')
-    )
+    if user_type == 'customer':
+        # Customer registration - no studio needed
+        required_fields = ['email', 'password', 'name']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        # Create customer user
+        user = User(
+            id=str(uuid.uuid4()),
+            studio_id=None,  # Customers don't belong to a studio
+            email=data['email'],
+            name=data['name'],
+            phone=data.get('phone'),
+            role='customer',
+            user_type='customer'
+        )
+        user.set_password(data['password'])
+        
+        try:
+            db.session.add(user)
+            db.session.commit()
+            
+            access_token = create_access_token(identity=user.id)
+            
+            return jsonify({
+                'message': 'Registration successful',
+                'access_token': access_token,
+                'user': user.to_dict()
+            }), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
     
-    # Create owner user
-    user = User(
-        id=str(uuid.uuid4()),
-        studio_id=studio.id,
-        email=data['email'],
-        name=data['name'],
-        role='owner'
-    )
-    user.set_password(data['password'])
-    
-    try:
-        db.session.add(studio)
-        db.session.add(user)
-        db.session.commit()
+    else:
+        # Studio owner registration
+        required_fields = ['email', 'password', 'name', 'studio_name']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field} is required'}), 400
         
-        # Generate access token
-        access_token = create_access_token(identity=user.id)
+        # Generate unique slug
+        import re
+        base_slug = data['studio_name'].lower()
+        base_slug = re.sub(r'[^a-z0-9\s-]', '', base_slug)
+        base_slug = re.sub(r'[\s_]+', '-', base_slug)
+        base_slug = re.sub(r'-+', '-', base_slug).strip('-')
         
-        return jsonify({
-            'message': 'Registration successful',
-            'access_token': access_token,
-            'user': user.to_dict(include_studio=True)
-        }), 201
+        # Ensure slug is unique
+        slug = base_slug
+        counter = 1
+        while Studio.query.filter_by(slug=slug).first():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
         
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        # Create studio
+        studio = Studio(
+            id=str(uuid.uuid4()),
+            name=data['studio_name'],
+            slug=slug,
+            email=data['email'],
+            phone=data.get('phone'),
+            address=data.get('address'),
+            timezone=data.get('timezone', 'Asia/Kolkata'),
+            onboarding_completed=False,
+            onboarding_step=0
+        )
+        
+        # Create owner user
+        user = User(
+            id=str(uuid.uuid4()),
+            studio_id=studio.id,
+            email=data['email'],
+            name=data['name'],
+            phone=data.get('phone'),
+            role='owner',
+            user_type='studio_owner'
+        )
+        user.set_password(data['password'])
+        
+        try:
+            db.session.add(studio)
+            db.session.add(user)
+            db.session.commit()
+            
+            access_token = create_access_token(identity=user.id)
+            
+            return jsonify({
+                'message': 'Registration successful',
+                'access_token': access_token,
+                'user': user.to_dict(include_studio=True)
+            }), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
 
 
 @auth_bp.route('/login', methods=['POST'])

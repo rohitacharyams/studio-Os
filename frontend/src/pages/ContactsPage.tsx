@@ -5,12 +5,9 @@ import type { Contact, LeadStatus } from '@/types'
 import {
   Plus,
   Search,
-  Filter,
   User,
   Mail,
   Phone,
-  Instagram,
-  MoreVertical,
   Edit,
   Trash2,
   X
@@ -310,7 +307,7 @@ function ContactModal({ contact, onClose }: { contact: Contact | null; onClose: 
             <label className="block text-sm font-medium text-gray-700">Lead Status</label>
             <select
               value={formData.lead_status}
-              onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, lead_status: e.target.value as LeadStatus })}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="NEW">New</option>

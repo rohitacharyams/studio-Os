@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Conversation, Channel } from '@/types'
+import type { Channel } from '@/types'
 
 interface InboxState {
   // Filters

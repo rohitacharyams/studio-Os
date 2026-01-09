@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>d2b886a03eab71bc3d7f3e970168f4ad4459111e</id>
+  <author>Rohit Acharya</author>
+  <deployer>GitHub</deployer>
+  <authorEmail>rohitacharya@microsoft.com</authorEmail>
+  <message>Add Azure deployment config for backend folder</message>
+  <progress></progress>
+  <status>Failed</status>
+  <statusText></statusText>
+  <lastSuccessEndTime />
+  <receivedTime>2026-01-07T14:57:57.9294711Z</receivedTime>
+  <startTime>2026-01-07T14:57:59.6224757Z</startTime>
+  <endTime>2026-01-07T14:58:16.5376777Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>False</is_readonly>
+  <buildSummary />
+</deployment>

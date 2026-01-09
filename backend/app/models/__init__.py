@@ -33,15 +33,33 @@ class Studio(db.Model):
     
     id = db.Column(db.String(36), primary_key=True)
     name = db.Column(db.String(255), nullable=False)
+    slug = db.Column(db.String(255), unique=True)  # URL-friendly name for public booking page
     email = db.Column(db.String(255), unique=True, nullable=False)
     phone = db.Column(db.String(50))
     address = db.Column(db.Text)
-    timezone = db.Column(db.String(50), default='America/New_York')
+    city = db.Column(db.String(100))
+    website = db.Column(db.String(255))
+    logo_url = db.Column(db.String(500))
+    timezone = db.Column(db.String(50), default='Asia/Kolkata')
+    currency = db.Column(db.String(10), default='INR')
+    
+    # Business hours
+    business_hours_open = db.Column(db.String(10), default='09:00')
+    business_hours_close = db.Column(db.String(10), default='21:00')
+    
+    # Onboarding status
+    onboarding_completed = db.Column(db.Boolean, default=False)
+    onboarding_step = db.Column(db.Integer, default=0)
     
     # Integration settings (JSON fields)
     email_settings = db.Column(db.JSON, default=dict)
     whatsapp_settings = db.Column(db.JSON, default=dict)
     instagram_settings = db.Column(db.JSON, default=dict)
+    payment_settings = db.Column(db.JSON, default=dict)
+    
+    # Payment settings (legacy)
+    razorpay_key_id = db.Column(db.String(255))
+    razorpay_key_secret = db.Column(db.String(255))
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -54,29 +72,52 @@ class Studio(db.Model):
     templates = db.relationship('MessageTemplate', backref='studio', lazy='dynamic')
     analytics = db.relationship('AnalyticsDaily', backref='studio', lazy='dynamic')
 
+    def generate_slug(self):
+        """Generate URL-friendly slug from studio name."""
+        import re
+        slug = self.name.lower()
+        slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+        slug = re.sub(r'[\s_]+', '-', slug)
+        slug = re.sub(r'-+', '-', slug).strip('-')
+        return slug
+
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
+            'slug': self.slug,
             'email': self.email,
             'phone': self.phone,
             'address': self.address,
+            'city': self.city,
+            'website': self.website,
+            'logo_url': self.logo_url,
             'timezone': self.timezone,
+            'currency': self.currency,
+            'business_hours_open': self.business_hours_open,
+            'business_hours_close': self.business_hours_close,
+            'onboarding_completed': self.onboarding_completed,
+            'onboarding_step': self.onboarding_step,
+            'whatsapp_connected': bool(self.whatsapp_settings and self.whatsapp_settings.get('connected')),
+            'email_connected': bool(self.email_settings and self.email_settings.get('connected')),
+            'instagram_connected': bool(self.instagram_settings and self.instagram_settings.get('connected')),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
 
 
 class User(db.Model):
-    """User model - studio staff members."""
+    """User model - studio staff members and customers."""
     __tablename__ = 'users'
     
     id = db.Column(db.String(36), primary_key=True)
-    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=True)  # Nullable for customers
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(255), nullable=False)
+    phone = db.Column(db.String(50))  # Customer phone for bookings
     role = db.Column(db.String(50), default='staff')  # owner, admin, staff
+    user_type = db.Column(db.String(20), default='studio_owner')  # studio_owner, customer
     is_active = db.Column(db.Boolean, default=True)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -85,6 +126,7 @@ class User(db.Model):
     
     # Relationships
     messages = db.relationship('Message', backref='sender', lazy='dynamic')
+    bookings = db.relationship('Booking', backref='user', lazy='dynamic', foreign_keys='Booking.user_id')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -97,8 +139,11 @@ class User(db.Model):
             'id': self.id,
             'email': self.email,
             'name': self.name,
+            'phone': self.phone,
             'role': self.role,
+            'user_type': self.user_type,
             'is_active': self.is_active,
+            'studio_id': self.studio_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'last_login': self.last_login.isoformat() if self.last_login else None,
         }
@@ -659,14 +704,15 @@ class ClassSession(db.Model):
 
 
 class Booking(db.Model):
-    """Class booking by a contact/student."""
+    """Class booking by a contact/student or registered user."""
     __tablename__ = 'bookings'
     
     id = db.Column(db.String(36), primary_key=True)
     booking_number = db.Column(db.String(20), unique=True, nullable=False)  # BK-2025-0001
     
     studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
-    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=False)
+    contact_id = db.Column(db.String(36), db.ForeignKey('contacts.id'), nullable=True)  # For guest bookings
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)  # For logged-in users
     session_id = db.Column(db.String(36), db.ForeignKey('class_sessions.id'), nullable=False)
     
     # Status
@@ -1142,4 +1188,50 @@ class DiscountCode(db.Model):
             'valid_from': self.valid_from.isoformat() if self.valid_from else None,
             'valid_until': self.valid_until.isoformat() if self.valid_until else None,
             'is_active': self.is_active,
+        }
+
+
+class NotificationType(str, Enum):
+    """Notification types."""
+    BOOKING = 'BOOKING'
+    PAYMENT = 'PAYMENT'
+    CANCELLATION = 'CANCELLATION'
+    REMINDER = 'REMINDER'
+    SYSTEM = 'SYSTEM'
+
+
+class Notification(db.Model):
+    """Notification model - stores notifications for studio owners."""
+    __tablename__ = 'notifications'
+    
+    id = db.Column(db.String(36), primary_key=True)
+    studio_id = db.Column(db.String(36), db.ForeignKey('studios.id'), nullable=False)
+    
+    type = db.Column(db.String(20), default='SYSTEM')  # BOOKING, PAYMENT, CANCELLATION, REMINDER, SYSTEM
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text)
+    
+    # Reference to related entity (optional)
+    reference_type = db.Column(db.String(50))  # 'booking', 'contact', 'payment'
+    reference_id = db.Column(db.String(36))
+    
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read_at = db.Column(db.DateTime)
+    
+    # Relationships
+    studio = db.relationship('Studio', backref=db.backref('notifications', lazy='dynamic'))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'studio_id': self.studio_id,
+            'type': self.type,
+            'title': self.title,
+            'message': self.message,
+            'reference_type': self.reference_type,
+            'reference_id': self.reference_id,
+            'is_read': self.is_read,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'read_at': self.read_at.isoformat() if self.read_at else None,
         }

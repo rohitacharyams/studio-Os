@@ -217,7 +217,7 @@ def create_session():
 @bookings_bp.route('', methods=['GET'])
 @jwt_required()
 def list_bookings():
-    """List bookings - staff sees all, contacts see their own."""
+    """List bookings - studio owners see their studio's bookings, customers see their own."""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
     
@@ -225,12 +225,16 @@ def list_bookings():
     contact_id = request.args.get('contact_id')
     session_id = request.args.get('session_id')
     status = request.args.get('status')
-    upcoming_only = request.args.get('upcoming', 'false').lower() == 'true'
+    time_filter = request.args.get('filter', 'all')  # 'upcoming', 'past', 'all'
     
-    query = Booking.query.filter_by(studio_id=user.studio_id)
-    
-    if contact_id:
-        query = query.filter_by(contact_id=contact_id)
+    # Customers see their own bookings (by user_id)
+    if user.user_type == 'customer':
+        query = Booking.query.filter_by(user_id=user.id)
+    else:
+        # Studio staff sees studio's bookings
+        query = Booking.query.filter_by(studio_id=user.studio_id)
+        if contact_id:
+            query = query.filter_by(contact_id=contact_id)
     
     if session_id:
         query = query.filter_by(session_id=session_id)
@@ -238,10 +242,16 @@ def list_bookings():
     if status:
         query = query.filter_by(status=status)
     
-    if upcoming_only:
-        # Join with sessions to filter by date
+    today = datetime.utcnow().date()
+    if time_filter == 'upcoming':
+        # Join with sessions to filter by date >= today
         query = query.join(ClassSession).filter(
-            ClassSession.date >= datetime.utcnow().date()
+            ClassSession.date >= today
+        )
+    elif time_filter == 'past':
+        # Join with sessions to filter by date < today
+        query = query.join(ClassSession).filter(
+            ClassSession.date < today
         )
     
     bookings = query.order_by(Booking.booked_at.desc()).limit(100).all()
@@ -262,6 +272,13 @@ def list_bookings():
                 dance_class = DanceClass.query.get(session.class_id)
                 if dance_class:
                     booking_data['class_name'] = dance_class.name
+                    
+                    # For customers, also include studio info
+                    if user.user_type == 'customer':
+                        studio = Studio.query.get(dance_class.studio_id)
+                        if studio:
+                            booking_data['studio_name'] = studio.name
+                            booking_data['studio_slug'] = studio.slug
         
         # Add contact info
         contact = Contact.query.get(booking.contact_id)
@@ -732,12 +749,12 @@ def weekly_schedule():
             dance_class = DanceClass.query.get(session.class_id)
             if dance_class:
                 session_data['class_name'] = dance_class.name
-                session_data['class_type'] = dance_class.style
+                session_data['class_type'] = dance_class.dance_style
                 session_data['level'] = dance_class.level
         
-        # Add instructor
+        # Add instructor name
         if session.instructor_id:
-            instructor = Instructor.query.get(session.instructor_id)
+            instructor = User.query.get(session.instructor_id)
             if instructor:
                 session_data['instructor_name'] = instructor.name
         
@@ -747,4 +764,277 @@ def weekly_schedule():
         'schedule': schedule,
         'start_date': start_date.isoformat(),
         'end_date': end_date.isoformat()
+    })
+
+
+# ============================================================
+# PUBLIC BOOKING ENDPOINTS (No Auth Required)
+# ============================================================
+
+@bookings_bp.route('/public/sessions/<studio_slug>', methods=['GET'])
+def public_list_sessions(studio_slug):
+    """List available sessions for a studio (public - no auth required)."""
+    studio = Studio.query.filter_by(slug=studio_slug).first()
+    
+    if not studio:
+        return jsonify({'error': 'Studio not found'}), 404
+    
+    # Get date range from query params
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    if start_date_str:
+        start_date = datetime.fromisoformat(start_date_str).date()
+    else:
+        start_date = datetime.utcnow().date()
+    
+    if end_date_str:
+        end_date = datetime.fromisoformat(end_date_str).date()
+    else:
+        end_date = start_date + timedelta(days=7)
+    
+    # First try to get actual ClassSessions
+    sessions = ClassSession.query.filter(
+        ClassSession.studio_id == studio.id,
+        ClassSession.date >= start_date,
+        ClassSession.date <= end_date,
+        ClassSession.status != 'CANCELLED'
+    ).order_by(ClassSession.date, ClassSession.start_time).all()
+    
+    if sessions:
+        result = []
+        for session in sessions:
+            dance_class = DanceClass.query.get(session.class_id) if session.class_id else None
+            # Get instructor name if available
+            instructor_name = 'TBA'
+            if dance_class and dance_class.instructor_id:
+                from app.models import User
+                instructor = User.query.get(dance_class.instructor_id)
+                if instructor:
+                    instructor_name = instructor.name
+            
+            result.append({
+                'id': session.id,
+                'class_name': dance_class.name if dance_class else 'Class',
+                'style': dance_class.dance_style if dance_class else '',
+                'level': dance_class.level if dance_class else 'All Levels',
+                'instructor_name': instructor_name,
+                'start_time': session.start_time.strftime('%H:%M') if session.start_time else '18:00',
+                'end_time': session.end_time.strftime('%H:%M') if session.end_time else '19:00',
+                'date': session.date.isoformat(),
+                'spots_available': session.available_spots if hasattr(session, 'available_spots') else (session.max_capacity - (session.booked_count or 0)),
+                'max_students': session.max_capacity,
+                'drop_in_price': float(dance_class.price) if dance_class and dance_class.price else 500,
+                'is_cancelled': session.status == 'CANCELLED'
+            })
+        return jsonify({'sessions': result})
+    
+    # Fallback: Generate sessions from ClassSchedules with specific_date
+    schedules = ClassSchedule.query.join(DanceClass).filter(
+        DanceClass.studio_id == studio.id,
+        DanceClass.is_active == True,
+        ClassSchedule.specific_date >= start_date,
+        ClassSchedule.specific_date <= end_date,
+        ClassSchedule.is_cancelled == False
+    ).order_by(ClassSchedule.specific_date, ClassSchedule.start_time).all()
+    
+    result = []
+    for schedule in schedules:
+        dance_class = schedule.dance_class
+        # Get instructor name if available
+        instructor_name = 'TBA'
+        if dance_class.instructor_id:
+            from app.models import User
+            instructor = User.query.get(dance_class.instructor_id)
+            if instructor:
+                instructor_name = instructor.name
+        
+        result.append({
+            'id': schedule.id,
+            'schedule_id': schedule.id,  # Mark this as a schedule
+            'class_name': dance_class.name,
+            'style': dance_class.dance_style,
+            'level': dance_class.level,
+            'instructor_name': instructor_name,
+            'start_time': schedule.start_time.strftime('%H:%M') if schedule.start_time else '18:00',
+            'end_time': schedule.end_time.strftime('%H:%M') if schedule.end_time else '19:00',
+            'date': schedule.specific_date.isoformat() if schedule.specific_date else datetime.utcnow().date().isoformat(),
+            'spots_available': dance_class.max_capacity - (schedule.current_enrollment or 0),
+            'max_students': dance_class.max_capacity,
+            'drop_in_price': float(dance_class.price) if dance_class.price else 500,
+            'is_cancelled': schedule.is_cancelled
+        })
+    
+    return jsonify({'sessions': result})
+
+
+@bookings_bp.route('/public/book', methods=['POST'])
+def public_create_booking():
+    """Create a booking from public booking page (no auth required)."""
+    data = request.get_json()
+    
+    # Validate required fields
+    required = ['studio_slug', 'session_id', 'customer_name', 'customer_phone']
+    for field in required:
+        if not data.get(field):
+            return jsonify({'error': f'{field} is required'}), 400
+    
+    # Find studio
+    studio = Studio.query.filter_by(slug=data['studio_slug']).first()
+    if not studio:
+        return jsonify({'error': 'Studio not found'}), 404
+    
+    session_id = data['session_id']
+    
+    # Try to find existing ClassSession
+    session = ClassSession.query.get(session_id)
+    
+    if not session:
+        # Maybe it's a schedule ID - create a session from it
+        schedule = ClassSchedule.query.get(session_id)
+        if not schedule:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        dance_class = schedule.dance_class
+        
+        # Create a ClassSession from the schedule
+        session = ClassSession(
+            id=str(uuid.uuid4()),
+            studio_id=studio.id,
+            schedule_id=schedule.id,
+            class_id=dance_class.id,
+            date=schedule.date,
+            start_time=datetime.combine(schedule.date, schedule.start_time.time()) if schedule.start_time else datetime.combine(schedule.date, datetime.strptime('18:00', '%H:%M').time()),
+            end_time=datetime.combine(schedule.date, schedule.end_time.time()) if schedule.end_time else datetime.combine(schedule.date, datetime.strptime('19:00', '%H:%M').time()),
+            max_capacity=dance_class.max_capacity,
+            status='SCHEDULED'
+        )
+        db.session.add(session)
+    
+    # Check availability
+    if session.is_full:
+        return jsonify({'error': 'This session is fully booked'}), 400
+    
+    # Get class info for pricing
+    dance_class = DanceClass.query.get(session.class_id) if session.class_id else None
+    
+    # Create or find contact
+    contact = Contact.query.filter_by(
+        studio_id=studio.id,
+        phone=data['customer_phone']
+    ).first()
+    
+    if not contact:
+        contact = Contact(
+            id=str(uuid.uuid4()),
+            studio_id=studio.id,
+            name=data['customer_name'],
+            phone=data['customer_phone'],
+            email=data.get('customer_email'),
+            lead_status='NEW',
+            lead_source='booking_page'
+        )
+        db.session.add(contact)
+    else:
+        # Update contact info
+        contact.name = data['customer_name']
+        if data.get('customer_email'):
+            contact.email = data['customer_email']
+    
+    # Create booking
+    booking = Booking(
+        id=str(uuid.uuid4()),
+        studio_id=studio.id,
+        contact_id=contact.id,
+        session_id=session.id,
+        booking_number=generate_booking_number(),
+        status='CONFIRMED',
+        payment_method=data.get('payment_method', 'pay_at_studio'),
+        booked_at=datetime.utcnow()
+    )
+    
+    # Update booking count
+    session.booked_count = (session.booked_count or 0) + 1
+    
+    try:
+        db.session.add(booking)
+        
+        # Create notification for studio owner
+        from app.routes.notifications import create_notification
+        class_name = dance_class.name if dance_class else 'Class'
+        session_date = session.date.strftime('%b %d') if session.date else ''
+        session_time = session.start_time.strftime('%H:%M') if session.start_time else ''
+        
+        create_notification(
+            studio_id=studio.id,
+            notification_type='BOOKING',
+            title=f'New Booking: {data["customer_name"]}',
+            message=f'{data["customer_name"]} booked {class_name} on {session_date} at {session_time}',
+            reference_type='booking',
+            reference_id=booking.id
+        )
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Booking confirmed',
+            'booking': {
+                'id': booking.id,
+                'booking_number': booking.booking_number,
+                'status': booking.status,
+                'class_name': dance_class.name if dance_class else 'Class',
+                'date': session.date.isoformat(),
+                'time': session.start_time.strftime('%H:%M') if session.start_time else None
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bookings_bp.route('/session/<session_id>/bookings', methods=['GET'])
+@jwt_required()
+def get_session_bookings(session_id):
+    """Get all bookings for a specific class session."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user or not user.studio_id:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Get the session
+    session = ClassSession.query.get(session_id)
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    # Verify the session belongs to the user's studio
+    if session.studio_id != user.studio_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get all bookings for this session
+    bookings = Booking.query.filter_by(
+        session_id=session_id
+    ).order_by(Booking.booked_at.desc()).all()
+    
+    result = []
+    for booking in bookings:
+        # Get contact info
+        contact = Contact.query.get(booking.contact_id) if booking.contact_id else None
+        
+        result.append({
+            'id': booking.id,
+            'booking_number': booking.booking_number,
+            'customer_name': contact.name if contact else 'Unknown',
+            'customer_email': contact.email if contact else '',
+            'customer_phone': contact.phone if contact else '',
+            'status': booking.status.lower() if booking.status else 'pending',
+            'payment_method': booking.payment_method,
+            'booked_at': booking.booked_at.isoformat() if booking.booked_at else booking.created_at.isoformat()
+        })
+    
+    return jsonify({
+        'bookings': result,
+        'total': len(result),
+        'session_id': session_id
     })

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/api'
-import { Building, User, Mail, Phone, Save, Instagram, ExternalLink, CheckCircle, AlertCircle, CreditCard, Copy, Link } from 'lucide-react'
+import { Building, User, Mail, Phone, Save, Instagram, ExternalLink, CheckCircle, AlertCircle, CreditCard, Copy, Link, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function SettingsPage() {
@@ -585,182 +585,316 @@ function PaymentSettings() {
 
 function EmailSettings() {
   const queryClient = useQueryClient()
-  const [formData, setFormData] = useState({
+  const [showGmailForm, setShowGmailForm] = useState(false)
+  const [showCustomForm, setShowCustomForm] = useState(false)
+  const [gmailForm, setGmailForm] = useState({ email: '', app_password: '' })
+  const [customForm, setCustomForm] = useState({
     smtp_host: '',
     smtp_port: '587',
-    smtp_user: '',
-    smtp_pass: '',
+    email: '',
+    password: '',
     imap_host: '',
-    imap_user: '',
-    imap_pass: '',
-    inbox_email: '',
+    imap_port: '993'
   })
 
-  // Fetch current settings
-  const { data } = useQuery({
-    queryKey: ['email-settings'],
+  // Fetch email status
+  const { data: status, isLoading } = useQuery({
+    queryKey: ['email-status'],
     queryFn: async () => {
-      const response = await api.get('/studio/settings/email')
-      return response.data.settings
+      const response = await api.get('/email/status')
+      return response.data
     },
   })
 
-  // Update form when data loads
-  useState(() => {
-    if (data) {
-      setFormData({ ...formData, ...data })
-    }
-  })
-
-  const mutation = useMutation({
-    mutationFn: async (settings: typeof formData) => {
-      const response = await api.put('/studio/settings/email', settings)
-      return response.data.settings
+  // Connect demo mode
+  const connectDemo = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/email/connect/demo')
+      return response.data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['email-settings'] })
-      toast.success('Email settings saved')
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['email-status'] })
+      toast.success(data.message || 'Demo mode enabled!')
     },
     onError: () => {
-      toast.error('Failed to save settings')
+      toast.error('Failed to enable demo mode')
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    mutation.mutate(formData)
+  // Connect Gmail
+  const connectGmail = useMutation({
+    mutationFn: async (data: { email: string; app_password: string }) => {
+      const response = await api.post('/email/connect/gmail', data)
+      return response.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['email-status'] })
+      toast.success(data.message || 'Gmail connected!')
+      setShowGmailForm(false)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to connect Gmail')
+    },
+  })
+
+  // Connect custom SMTP
+  const connectCustom = useMutation({
+    mutationFn: async (data: typeof customForm) => {
+      const response = await api.post('/email/connect/smtp', data)
+      return response.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['email-status'] })
+      toast.success(data.message || 'Email connected!')
+      setShowCustomForm(false)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to connect')
+    },
+  })
+
+  // Disconnect
+  const disconnect = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/email/disconnect')
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-status'] })
+      toast.success('Email disconnected')
+    },
+  })
+
+  // Test email
+  const testEmail = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/email/test')
+      return response.data
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Test email sent!')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to send test email')
+    },
+  })
+
+  if (isLoading) {
+    return <div className="flex justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /></div>
   }
 
+  const isConnected = status?.connected
+
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-      {/* Setup Guide */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
-          <Mail className="w-5 h-5" />
-          How to Connect Your Email
-        </h3>
-        <div className="space-y-3 text-sm text-blue-800">
-          <div className="flex items-start gap-2">
-            <span className="bg-blue-200 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">1</span>
-            <span><strong>Gmail:</strong> Use smtp.gmail.com for SMTP and imap.gmail.com for IMAP. Enable "Less secure app access" or create an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">App Password</a></span>
+    <div className="max-w-2xl space-y-6">
+      {/* Connection Status */}
+      <div className={`rounded-lg border p-6 ${isConnected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-3 rounded-full ${isConnected ? 'bg-green-100' : 'bg-gray-200'}`}>
+              <Mail className={`w-6 h-6 ${isConnected ? 'text-green-600' : 'text-gray-500'}`} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">
+                {isConnected ? 'Email Connected' : 'Email Not Connected'}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {isConnected ? (
+                  <>
+                    {status?.email} 
+                    {status?.demo_mode && <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">Demo Mode</span>}
+                  </>
+                ) : 'Connect your email to send and receive messages'}
+              </p>
+            </div>
           </div>
-          <div className="flex items-start gap-2">
-            <span className="bg-blue-200 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">2</span>
-            <span><strong>Outlook:</strong> Use smtp-mail.outlook.com (port 587) and outlook.office365.com for IMAP</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="bg-blue-200 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 text-xs font-bold">3</span>
-            <span><strong>Custom:</strong> Contact your email provider for SMTP/IMAP server details</span>
-          </div>
+          {isConnected && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => testEmail.mutate()}
+                disabled={testEmail.isPending}
+                className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                {testEmail.isPending ? 'Sending...' : 'Send Test'}
+              </button>
+              <button
+                onClick={() => disconnect.mutate()}
+                className="px-3 py-1.5 text-sm text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50"
+              >
+                Disconnect
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Email Integration</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Configure email settings to send and receive emails through the inbox.
-        </p>
-        
+      {/* Connection Options - Show only if not connected */}
+      {!isConnected && (
         <div className="space-y-4">
-          <div className="border-b border-gray-200 pb-4">
-            <h4 className="font-medium text-gray-700 mb-3">Outgoing Mail (SMTP)</h4>
-            <div className="grid grid-cols-2 gap-4">
+          <h3 className="text-lg font-semibold text-gray-900">Choose how to connect</h3>
+          
+          {/* Demo Mode - Recommended */}
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-5">
+            <div className="flex items-start justify-between">
               <div>
-                <label className="block text-sm font-medium text-gray-700">SMTP Host</label>
-                <input
-                  type="text"
-                  value={formData.smtp_host}
-                  onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="smtp.gmail.com"
-                />
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-purple-900">🎮 Demo Mode</h4>
+                  <span className="px-2 py-0.5 bg-purple-200 text-purple-800 rounded text-xs font-medium">Recommended for Testing</span>
+                </div>
+                <p className="text-sm text-purple-800 mt-1">
+                  Test all email features instantly without any setup. Perfect for demos and testing.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Port</label>
-                <input
-                  type="text"
-                  value={formData.smtp_port}
-                  onChange={(e) => setFormData({ ...formData, smtp_port: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="587"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Username</label>
-                <input
-                  type="text"
-                  value={formData.smtp_user}
-                  onChange={(e) => setFormData({ ...formData, smtp_user: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Password</label>
-                <input
-                  type="password"
-                  value={formData.smtp_pass}
-                  onChange={(e) => setFormData({ ...formData, smtp_pass: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
+              <button
+                onClick={() => connectDemo.mutate()}
+                disabled={connectDemo.isPending}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                {connectDemo.isPending ? 'Enabling...' : 'Enable Demo'}
+              </button>
             </div>
           </div>
 
-          <div>
-            <h4 className="font-medium text-gray-700 mb-3">Incoming Mail (IMAP)</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700">IMAP Host</label>
-                <input
-                  type="text"
-                  value={formData.imap_host}
-                  onChange={(e) => setFormData({ ...formData, imap_host: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="imap.gmail.com"
-                />
-              </div>
+          {/* Gmail Connection */}
+          <div className="bg-white border border-gray-200 rounded-lg p-5">
+            <div className="flex items-start justify-between">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Username</label>
-                <input
-                  type="text"
-                  value={formData.imap_user}
-                  onChange={(e) => setFormData({ ...formData, imap_user: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                />
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-gray-900">📧 Gmail with App Password</h4>
+                  <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Easy - 5 mins</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Connect your Gmail account using a secure App Password.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Password</label>
-                <input
-                  type="password"
-                  value={formData.imap_pass}
-                  onChange={(e) => setFormData({ ...formData, imap_pass: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Inbox Email Address</label>
-                <input
-                  type="email"
-                  value={formData.inbox_email}
-                  onChange={(e) => setFormData({ ...formData, inbox_email: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="inbox@yourstudio.com"
-                />
-              </div>
+              <button
+                onClick={() => { setShowGmailForm(!showGmailForm); setShowCustomForm(false) }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                {showGmailForm ? 'Cancel' : 'Connect Gmail'}
+              </button>
             </div>
+            
+            {showGmailForm && (
+              <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+                  <h5 className="font-medium text-blue-900 mb-2">How to get an App Password:</h5>
+                  <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                    <li>Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="underline">Google Account Security</a></li>
+                    <li>Enable 2-Factor Authentication if not already enabled</li>
+                    <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline">App Passwords</a></li>
+                    <li>Select "Mail" and your device, click "Generate"</li>
+                    <li>Copy the 16-character password (no spaces)</li>
+                  </ol>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Gmail Address</label>
+                    <input
+                      type="email"
+                      value={gmailForm.email}
+                      onChange={(e) => setGmailForm({ ...gmailForm, email: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="youremail@gmail.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">App Password</label>
+                    <input
+                      type="password"
+                      value={gmailForm.app_password}
+                      onChange={(e) => setGmailForm({ ...gmailForm, app_password: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="16-character app password"
+                    />
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => connectGmail.mutate(gmailForm)}
+                  disabled={connectGmail.isPending || !gmailForm.email || !gmailForm.app_password}
+                  className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {connectGmail.isPending ? 'Connecting...' : 'Connect Gmail'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Custom SMTP */}
+          <div className="bg-white border border-gray-200 rounded-lg p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <h4 className="font-semibold text-gray-900">⚙️ Custom SMTP Server</h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  Advanced: Connect any email provider using SMTP settings.
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowCustomForm(!showCustomForm); setShowGmailForm(false) }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                {showCustomForm ? 'Cancel' : 'Configure'}
+              </button>
+            </div>
+            
+            {showCustomForm && (
+              <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">SMTP Host</label>
+                    <input
+                      type="text"
+                      value={customForm.smtp_host}
+                      onChange={(e) => setCustomForm({ ...customForm, smtp_host: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="smtp.example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">SMTP Port</label>
+                    <input
+                      type="text"
+                      value={customForm.smtp_port}
+                      onChange={(e) => setCustomForm({ ...customForm, smtp_port: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="587"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email</label>
+                    <input
+                      type="email"
+                      value={customForm.email}
+                      onChange={(e) => setCustomForm({ ...customForm, email: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Password</label>
+                    <input
+                      type="password"
+                      value={customForm.password}
+                      onChange={(e) => setCustomForm({ ...customForm, password: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => connectCustom.mutate(customForm)}
+                  disabled={connectCustom.isPending}
+                  className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {connectCustom.isPending ? 'Connecting...' : 'Connect'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={mutation.isPending}
-        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-      >
-        <Save className="w-4 h-4" />
-        {mutation.isPending ? 'Saving...' : 'Save Settings'}
-      </button>
-    </form>
+      )}
+    </div>
   )
 }
 

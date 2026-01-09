@@ -72,6 +72,7 @@ def create_app(config_name='default'):
     from app.routes.payments import payments_bp
     from app.routes.whatsapp import bp as whatsapp_bp
     from app.routes.notifications import notifications_bp
+    from app.routes.email import email_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(conversations_bp, url_prefix='/api/conversations')
@@ -89,6 +90,7 @@ def create_app(config_name='default'):
     app.register_blueprint(payments_bp)  # Already has /api/payments prefix
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(whatsapp_bp, url_prefix='/api/whatsapp')
+    app.register_blueprint(email_bp)  # Already has /api/email prefix
     
     # Health check endpoint
     @app.route('/health')

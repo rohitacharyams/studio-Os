@@ -12,7 +12,7 @@ interface ChatMessage {
 }
 
 export default function ChatbotWidget() {
-  const { user, studio } = useAuthStore()
+  useAuthStore() // Keep auth context active
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')

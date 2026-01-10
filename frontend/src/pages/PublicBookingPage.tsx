@@ -373,38 +373,38 @@ export default function PublicBookingPage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl">
                 {studio?.name?.charAt(0) || 'S'}
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{studio?.name}</h1>
+                <h1 className="text-base sm:text-xl font-bold text-gray-900">{studio?.name}</h1>
                 {studio?.address && (
-                  <p className="text-sm text-gray-500 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" /> {studio.address}
+                  <p className="text-xs sm:text-sm text-gray-500 flex items-center gap-1 truncate max-w-[200px] sm:max-w-none">
+                    <MapPin className="w-3 h-3 flex-shrink-0" /> {studio.address}
                   </p>
                 )}
               </div>
             </div>
             {studio?.phone && (
-              <a href={`tel:${studio.phone}`} className="hidden sm:flex items-center gap-2 text-gray-600 hover:text-purple-600">
+              <a href={`tel:${studio.phone}`} className="flex items-center gap-1 sm:gap-2 text-gray-600 hover:text-purple-600 text-sm">
                 <Phone className="w-4 h-4" />
-                {studio.phone}
+                <span className="hidden sm:inline">{studio.phone}</span>
               </a>
             )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {bookingStep === 'select' && (
           <>
             {/* Welcome banner */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-6 text-white mb-8">
-              <h2 className="text-2xl font-bold mb-2">Book Your Next Class</h2>
-              <p className="text-purple-100">Select a class below to reserve your spot</p>
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white mb-4 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Book Your Next Class</h2>
+              <p className="text-sm sm:text-base text-purple-100">Select a class below to reserve your spot</p>
             </div>
 
             {/* Date navigation */}

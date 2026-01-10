@@ -516,16 +516,15 @@ export default function CalendarPage() {
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
+      <div className="bg-white border-b px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">Class Calendar</h1>
+          <div className="flex items-center gap-2 sm:gap-4"><h1 className="text-lg sm:text-2xl font-bold text-gray-900">Calendar</h1>
             
             {/* View Toggle */}
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('week')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                   viewMode === 'week' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -533,7 +532,7 @@ export default function CalendarPage() {
               </button>
               <button
                 onClick={() => setViewMode('month')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                   viewMode === 'month' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -542,8 +541,7 @@ export default function CalendarPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            {/* Navigation */}
+          <div className="flex items-center gap-2 sm:gap-3">{/* Navigation */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate('prev')}
@@ -566,7 +564,7 @@ export default function CalendarPage() {
             </div>
             
             {/* Current Period */}
-            <div className="text-lg font-semibold text-gray-900 min-w-[200px] text-center">
+            <div className="text-lg font-semibold text-gray-900 hidden sm:block min-w-[200px] text-center">
               {viewMode === 'week' ? (
                 <>
                   {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {' '}
@@ -580,7 +578,7 @@ export default function CalendarPage() {
             {/* Create Button */}
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
             >
               <Plus className="w-5 h-5" />
               Create Class
@@ -603,12 +601,12 @@ export default function CalendarPage() {
               {weekDays.map((date, idx) => (
                 <div
                   key={idx}
-                  className={`p-3 text-center border-r last:border-r-0 ${
+                  className={`p-1 sm:p-3 text-center border-r last:border-r-0 ${
                     isToday(date) ? 'bg-purple-50' : ''
                   }`}
                 >
-                  <div className="text-xs font-medium text-gray-500 uppercase">{DAYS[idx]}</div>
-                  <div className={`text-2xl font-semibold mt-1 ${
+                  <div className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase">{DAYS[idx]}</div>
+                  <div className={`text-base sm:text-2xl font-semibold mt-0.5 sm:mt-1 ${
                     isToday(date) ? 'text-purple-600' : 'text-gray-900'
                   }`}>
                     {date.getDate()}
@@ -622,33 +620,31 @@ export default function CalendarPage() {
               {weekDays.map((date, idx) => (
                 <div
                   key={idx}
-                  className={`border-r last:border-r-0 p-2 min-h-[500px] ${
+                  className={`border-r last:border-r-0 p-1 sm:p-2 min-h-[300px] sm:min-h-[500px] ${
                     isToday(date) ? 'bg-purple-50/30' : 'bg-white'
                   }`}
                 >
-                  <div className="space-y-2">
-                    {getSessionsForDate(date).map(session => (
+                  <div className="space-y-1 sm:space-y-2">{getSessionsForDate(date).map(session => (
                       <div
                         key={session.id}
                         onClick={() => setSelectedSession(session)}
-                        className={`p-2 rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${
+                        className={`p-1 sm:p-2 rounded-lg cursor-pointer hover:opacity-90 transition-opacity ${
                           getStyleColor(session.class_type)
                         } text-white`}
                       >
-                        <div className="text-xs opacity-90">
-                          {formatTime(session.start_time)}
+                        <div className="text-[10px] sm:text-xs opacity-90">{formatTime(session.start_time)}
                         </div>
-                        <div className="font-medium text-sm truncate">
+                        <div className="font-medium text-[10px] sm:text-sm truncate">
                           {session.class_name}
                         </div>
-                        <div className="text-xs opacity-90 flex items-center gap-1 mt-1">
+                        <div className="text-[10px] sm:text-xs opacity-90 hidden sm:flex items-center gap-1 mt-1">
                           <Users className="w-3 h-3" />
                           {session.booked_count}/{session.max_capacity}
                         </div>
                       </div>
                     ))}
                     {getSessionsForDate(date).length === 0 && (
-                      <div className="text-center text-gray-400 text-sm py-4">
+                      <div className="text-center text-gray-400 text-[10px] sm:text-sm py-2 sm:py-4">
                         No classes
                       </div>
                     )}
@@ -660,12 +656,12 @@ export default function CalendarPage() {
         </div>
       ) : (
         /* Month View */
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-2 sm:p-4">
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             {/* Month Day Headers */}
             <div className="grid grid-cols-7 border-b">
               {DAYS.map(day => (
-                <div key={day} className="p-3 text-center text-sm font-medium text-gray-500 border-r last:border-r-0">
+                <div key={day} className="p-1 sm:p-3 text-center text-[10px] sm:text-sm font-medium text-gray-500 border-r last:border-r-0">
                   {day}
                 </div>
               ))}
@@ -678,21 +674,21 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={idx}
-                    className={`min-h-[120px] p-2 border-r border-b last:border-r-0 ${
+                    className={`min-h-[60px] sm:min-h-[120px] p-1 sm:p-2 border-r border-b last:border-r-0 ${
                       !isCurrentMonth(date) ? 'bg-gray-50 text-gray-400' : ''
                     } ${isToday(date) ? 'bg-purple-50' : ''}`}
                   >
-                    <div className={`text-sm font-medium mb-1 ${
+                    <div className={`text-[10px] sm:text-sm font-medium mb-0.5 sm:mb-1 ${
                       isToday(date) ? 'text-purple-600' : ''
                     }`}>
                       {date.getDate()}
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5 sm:space-y-1">
                       {daySessions.slice(0, 3).map(session => (
                         <div
                           key={session.id}
                           onClick={() => setSelectedSession(session)}
-                          className={`text-xs p-1 rounded cursor-pointer truncate ${
+                          className={`text-[8px] sm:text-xs p-0.5 sm:p-1 rounded cursor-pointer truncate ${
                             getStyleColor(session.class_type)
                           } text-white`}
                         >

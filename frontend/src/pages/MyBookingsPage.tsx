@@ -77,6 +77,22 @@ export default function MyBookingsPage() {
   };
 
   const formatDate = (dateStr: string) => {
+    // Parse date string manually to avoid timezone issues
+    // dateStr can be "2025-01-15" (date only) or ISO string with time
+    if (!dateStr) return '';
+    
+    // For date-only strings (YYYY-MM-DD), parse as local date
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+    
+    // For ISO strings with time, use normal parsing
     return new Date(dateStr).toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -85,6 +101,7 @@ export default function MyBookingsPage() {
   };
 
   const formatTime = (timeStr: string) => {
+    if (!timeStr) return '';
     return new Date(timeStr).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -93,6 +110,17 @@ export default function MyBookingsPage() {
   };
 
   const isUpcoming = (dateStr: string) => {
+    if (!dateStr) return false;
+    
+    // For date-only strings, parse as local date
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const sessionDate = new Date(year, month - 1, day);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return sessionDate >= today;
+    }
+    
     return new Date(dateStr) >= new Date();
   };
 

@@ -210,6 +210,171 @@ def create_session():
     return jsonify(session.to_dict()), 201
 
 
+@bookings_bp.route('/sessions/<session_id>', methods=['PUT'])
+@jwt_required()
+def update_session(session_id):
+    """Update a class session."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if user.role not in ['owner', 'admin']:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    session = ClassSession.query.filter_by(
+        id=session_id,
+        studio_id=user.studio_id
+    ).first()
+    
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    data = request.get_json()
+    
+    # Track if we need to notify customers
+    notify_customers = data.get('notify_customers', False)
+    changes = []
+    
+    if 'date' in data:
+        new_date = datetime.fromisoformat(data['date']).date()
+        if session.date != new_date:
+            changes.append(f"Date changed from {session.date.strftime('%b %d')} to {new_date.strftime('%b %d')}")
+            session.date = new_date
+    
+    if 'start_time' in data:
+        new_time = datetime.fromisoformat(data['start_time'])
+        if session.start_time != new_time:
+            changes.append(f"Time changed to {new_time.strftime('%H:%M')}")
+            session.start_time = new_time
+    
+    if 'end_time' in data:
+        session.end_time = datetime.fromisoformat(data['end_time'])
+    
+    if 'max_capacity' in data:
+        session.max_capacity = int(data['max_capacity'])
+    
+    if 'instructor_id' in data:
+        session.instructor_id = data['instructor_id']
+    
+    if 'notes' in data:
+        session.notes = data['notes']
+    
+    db.session.commit()
+    
+    # Notify booked customers if requested and changes were made
+    if notify_customers and changes:
+        try:
+            bookings = Booking.query.filter_by(
+                session_id=session_id,
+                status='CONFIRMED'
+            ).all()
+            
+            dance_class = DanceClass.query.get(session.class_id)
+            class_name = dance_class.name if dance_class else 'Your class'
+            studio = Studio.query.get(user.studio_id)
+            
+            for booking in bookings:
+                contact = Contact.query.get(booking.contact_id)
+                if contact:
+                    # Send notification via notification service
+                    try:
+                        notification_service.send_class_update_notification(
+                            contact=contact,
+                            class_name=class_name,
+                            changes=changes,
+                            new_date=session.date,
+                            new_time=session.start_time,
+                            studio=studio
+                        )
+                    except Exception as e:
+                        import logging
+                        logging.warning(f"Failed to notify contact {contact.id}: {e}")
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to send session update notifications: {e}")
+    
+    return jsonify({
+        'message': 'Session updated successfully',
+        'session': session.to_dict(),
+        'changes': changes,
+        'customers_notified': len(changes) > 0 and notify_customers
+    })
+
+
+@bookings_bp.route('/sessions/<session_id>', methods=['DELETE'])
+@jwt_required()
+def delete_session(session_id):
+    """Cancel/Delete a class session and notify booked customers."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if user.role not in ['owner', 'admin']:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    session = ClassSession.query.filter_by(
+        id=session_id,
+        studio_id=user.studio_id
+    ).first()
+    
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    data = request.get_json() or {}
+    reason = data.get('reason', 'Class has been cancelled')
+    notify_customers = data.get('notify_customers', True)
+    
+    # Get booked customers before cancellation
+    bookings = Booking.query.filter_by(
+        session_id=session_id,
+        status='CONFIRMED'
+    ).all()
+    
+    customers_to_notify = []
+    dance_class = DanceClass.query.get(session.class_id)
+    class_name = dance_class.name if dance_class else 'Class'
+    studio = Studio.query.get(user.studio_id)
+    
+    for booking in bookings:
+        contact = Contact.query.get(booking.contact_id)
+        if contact:
+            customers_to_notify.append({
+                'contact': contact,
+                'booking': booking
+            })
+        # Cancel the booking
+        booking.status = 'CANCELLED'
+        booking.cancelled_at = datetime.utcnow()
+        booking.cancellation_reason = f'Class cancelled: {reason}'
+    
+    # Cancel the session
+    session.status = 'CANCELLED'
+    
+    db.session.commit()
+    
+    # Notify customers
+    notified_count = 0
+    if notify_customers:
+        for item in customers_to_notify:
+            try:
+                notification_service.send_class_cancellation_notification(
+                    contact=item['contact'],
+                    class_name=class_name,
+                    session_date=session.date,
+                    session_time=session.start_time,
+                    reason=reason,
+                    studio=studio
+                )
+                notified_count += 1
+            except Exception as e:
+                import logging
+                logging.warning(f"Failed to notify contact {item['contact'].id}: {e}")
+    
+    return jsonify({
+        'message': 'Session cancelled successfully',
+        'bookings_cancelled': len(bookings),
+        'customers_notified': notified_count
+    })
+
+
 # ============================================================
 # BOOKINGS
 # ============================================================

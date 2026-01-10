@@ -408,6 +408,104 @@ class NotificationService:
             except Exception as e:
                 logger.error(f"Failed to send waitlist notification SMS: {e}")
     
+    def send_class_update_notification(self, contact, class_name, changes, new_date, new_time, studio):
+        """Send class update notification to booked customers."""
+        context = {
+            'contact_name': contact.name or 'there',
+            'class_name': class_name,
+            'changes': ', '.join(changes),
+            'new_date': new_date.strftime('%A, %B %d, %Y') if new_date else 'TBA',
+            'new_time': new_time.strftime('%I:%M %p') if new_time else 'TBA',
+            'studio_name': studio.name if studio else 'Studio'
+        }
+        
+        # Send email
+        if contact.email:
+            try:
+                html = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Class Update Notice</h2>
+                    <p>Hi {context['contact_name']},</p>
+                    <p>Your upcoming class <strong>{context['class_name']}</strong> has been updated:</p>
+                    <p><strong>Changes:</strong> {context['changes']}</p>
+                    <p><strong>New Date:</strong> {context['new_date']}<br>
+                    <strong>New Time:</strong> {context['new_time']}</p>
+                    <p>If you can no longer attend, please cancel your booking.</p>
+                    <p>Thank you,<br>{context['studio_name']} Team</p>
+                </body>
+                </html>
+                """
+                if self.email_provider:
+                    self.email_provider.send(
+                        to_email=contact.email,
+                        to_name=contact.name or 'Customer',
+                        subject=f"Class Update: {class_name}",
+                        html=html
+                    )
+                logger.info(f"Sent class update email to {contact.email}")
+            except Exception as e:
+                logger.error(f"Failed to send class update email: {e}")
+        
+        # Send SMS
+        if contact.phone and self.sms_provider:
+            try:
+                sms_text = f"Hi {context['contact_name']}, your {class_name} class has been updated: {context['changes']}. New time: {context['new_date']} at {context['new_time']}. - {context['studio_name']}"
+                self.sms_provider.send(contact.phone, sms_text)
+                logger.info(f"Sent class update SMS to {contact.phone}")
+            except Exception as e:
+                logger.error(f"Failed to send class update SMS: {e}")
+    
+    def send_class_cancellation_notification(self, contact, class_name, session_date, session_time, reason, studio):
+        """Send class cancellation notification to booked customers."""
+        context = {
+            'contact_name': contact.name or 'there',
+            'class_name': class_name,
+            'session_date': session_date.strftime('%A, %B %d, %Y') if session_date else 'TBA',
+            'session_time': session_time.strftime('%I:%M %p') if session_time else 'TBA',
+            'reason': reason,
+            'studio_name': studio.name if studio else 'Studio'
+        }
+        
+        # Send email
+        if contact.email:
+            try:
+                html = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2 style="color: #dc2626;">Class Cancelled</h2>
+                    <p>Hi {context['contact_name']},</p>
+                    <p>We regret to inform you that the following class has been cancelled:</p>
+                    <p><strong>Class:</strong> {context['class_name']}<br>
+                    <strong>Date:</strong> {context['session_date']}<br>
+                    <strong>Time:</strong> {context['session_time']}</p>
+                    <p><strong>Reason:</strong> {context['reason']}</p>
+                    <p>Your booking has been automatically cancelled. If you had paid for this class, a refund will be processed.</p>
+                    <p>We apologize for any inconvenience and hope to see you at another class soon!</p>
+                    <p>Thank you,<br>{context['studio_name']} Team</p>
+                </body>
+                </html>
+                """
+                if self.email_provider:
+                    self.email_provider.send(
+                        to_email=contact.email,
+                        to_name=contact.name or 'Customer',
+                        subject=f"Class Cancelled: {class_name}",
+                        html=html
+                    )
+                logger.info(f"Sent class cancellation email to {contact.email}")
+            except Exception as e:
+                logger.error(f"Failed to send class cancellation email: {e}")
+        
+        # Send SMS
+        if contact.phone and self.sms_provider:
+            try:
+                sms_text = f"Hi {context['contact_name']}, unfortunately your {class_name} class on {context['session_date']} has been cancelled: {context['reason']}. Your booking is automatically cancelled. - {context['studio_name']}"
+                self.sms_provider.send(contact.phone, sms_text)
+                logger.info(f"Sent class cancellation SMS to {contact.phone}")
+            except Exception as e:
+                logger.error(f"Failed to send class cancellation SMS: {e}")
+    
     def send_payment_confirmation(self, payment, contact, studio):
         """Send payment confirmation SMS."""
         context = {

@@ -27,7 +27,7 @@ export default function TemplatesPage() {
   // Load default templates mutation
   const loadDefaultsMutation = useMutation({
     mutationFn: async () => {
-      const response = await api.post('/templates/load-defaults')
+      const response = await api.post('/templates/load-defaults', {})
       return response.data
     },
     onSuccess: (data) => {

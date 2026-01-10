@@ -697,6 +697,53 @@ def delete_knowledge(item_id):
         return jsonify({'error': str(e)}), 500
 
 
+@studio_bp.route('/knowledge/load-templates', methods=['POST'])
+@jwt_required()
+def load_knowledge_templates():
+    """Load default knowledge base templates for a new studio."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user or not user.studio_id:
+        return jsonify({'error': 'Studio not found'}), 404
+    
+    studio = Studio.query.get(user.studio_id)
+    if not studio:
+        return jsonify({'error': 'Studio not found'}), 404
+    
+    default_templates = [
+        {'category': 'General', 'title': 'About Our Studio', 'content': f'Welcome to {studio.name}! We are a dance studio.'},
+        {'category': 'General', 'title': 'Studio Hours', 'content': 'Open Mon-Fri 10AM-9PM, Sat-Sun 9AM-6PM.'},
+        {'category': 'General', 'title': 'Location', 'content': f'Located at {studio.address or "our studio"}.'},
+        {'category': 'Classes', 'title': 'Class Levels', 'content': 'Beginner, Intermediate, and Advanced.'},
+        {'category': 'Classes', 'title': 'Trial Classes', 'content': 'Book a trial class at a discounted rate.'},
+        {'category': 'Classes', 'title': 'What to Bring', 'content': 'Wear comfortable clothing and dance shoes.'},
+        {'category': 'Pricing', 'title': 'Packages', 'content': 'Single class, 5-pack, 10-pack, monthly unlimited.'},
+        {'category': 'Pricing', 'title': 'Payment Methods', 'content': 'Credit cards, debit, UPI, cash accepted.'},
+        {'category': 'Policies', 'title': 'Cancellation', 'content': 'Cancel up to 24 hours before class.'},
+        {'category': 'Policies', 'title': 'Refunds', 'content': 'Packages non-refundable but transferable.'},
+        {'category': 'Booking', 'title': 'How to Book', 'content': 'Book via website or contact us directly.'},
+        {'category': 'Contact', 'title': 'Contact Info', 'content': f'Email: {studio.email or "info@studio.com"}'}
+    ]
+    
+    created = skipped = 0
+    for t in default_templates:
+        if StudioKnowledge.query.filter_by(studio_id=user.studio_id, title=t['title']).first():
+            skipped += 1
+            continue
+        item = StudioKnowledge(id=str(uuid.uuid4()), studio_id=user.studio_id, category=t['category'], title=t['title'], content=t['content'], is_active=True)
+        db.session.add(item)
+        created += 1
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': f'Created {created}, skipped {skipped}', 'created': created, 'skipped': skipped}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+
 # ============================================================
 # EXPLORE ENDPOINTS (For Customers to Browse Studios)
 # ============================================================

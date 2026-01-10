@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, User, Users, ChevronLeft, ChevronRight,
-  Plus, X, AlertCircle, Loader2, Repeat, Check, Copy, Link, ExternalLink
+  Plus, X, AlertCircle, Loader2, Repeat, Check, Copy, Link, ExternalLink, Trash2
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -97,6 +97,12 @@ export default function CalendarPage() {
   const [sessionBookings, setSessionBookings] = useState<Booking[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [studioInfo, setStudioInfo] = useState<StudioInfo | null>(null);
+  
+  // Delete session state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [notifyOnDelete, setNotifyOnDelete] = useState(true);
   
   const [createForm, setCreateForm] = useState<CreateClassForm>({
     name: '',
@@ -416,6 +422,32 @@ export default function CalendarPage() {
     }));
   };
 
+
+  // Handle delete session
+  const handleDeleteSession = async () => {
+    if (!selectedSession) return;
+    
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/bookings/sessions/${selectedSession.id}`, {
+        data: {
+          notify_customers: notifyOnDelete,
+          cancellation_reason: cancellationReason
+        }
+      });
+      
+      toast.success('Class cancelled successfully');
+      setSessions(prev => prev.filter(s => s.id !== selectedSession.id));
+      setSelectedSession(null);
+      setShowDeleteConfirm(false);
+      setCancellationReason('');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to cancel class');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
@@ -706,6 +738,99 @@ export default function CalendarPage() {
               >
                 <Users className="w-4 h-4" />
                 View Bookings ({selectedSession.booked_count})
+              </button>
+            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full mt-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Cancel Class
+            </button>
+          </div>
+        </div>
+      )}
+
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && selectedSession && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Cancel Class</h3>
+                <p className="text-sm text-gray-500">{selectedSession.class_name}</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to cancel this class? This action cannot be undone.
+              {selectedSession.booked_count > 0 && (
+                <span className="block mt-2 text-red-600 font-medium">
+                  {selectedSession.booked_count} student(s) have booked this class.
+                </span>
+              )}
+            </p>
+            
+            {selectedSession.booked_count > 0 && (
+              <div className="mb-4">
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    checked={notifyOnDelete}
+                    onChange={(e) => setNotifyOnDelete(e.target.checked)}
+                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="text-sm text-gray-700">Notify students via email</span>
+                </label>
+                
+                {notifyOnDelete && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cancellation reason (optional)
+                    </label>
+                    <textarea
+                      value={cancellationReason}
+                      onChange={(e) => setCancellationReason(e.target.value)}
+                      placeholder="e.g., Instructor unavailable, Studio maintenance..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
+                      rows={2}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setCancellationReason('');
+                }}
+                className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                disabled={deleteLoading}
+              >
+                Keep Class
+              </button>
+              <button
+                onClick={handleDeleteSession}
+                disabled={deleteLoading}
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Cancelling...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Cancel Class
+                  </>
+                )}
               </button>
             </div>
           </div>

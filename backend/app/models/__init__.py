@@ -487,6 +487,18 @@ class DanceClass(db.Model):
     # Instructor info
     instructor_id = db.Column(db.String(36), db.ForeignKey('users.id'))
     
+    # Enhanced media & details (JSON fields)
+    images = db.Column(db.JSON, default=list)  # List of image URLs
+    videos = db.Column(db.JSON, default=list)  # List of video URLs (YouTube, etc.)
+    
+    # Artist/Instructor details (beyond the FK)
+    artist_details = db.Column(db.JSON, default=dict)  # {bio, specialties, experience, achievements, socials: {instagram, youtube, etc.}}
+    
+    # Additional class info
+    what_to_bring = db.Column(db.Text)  # What students should bring
+    prerequisites = db.Column(db.Text)  # Prerequisites for the class
+    tags = db.Column(db.JSON, default=list)  # Tags for filtering
+    
     # Active status
     is_active = db.Column(db.Boolean, default=True)
     
@@ -509,6 +521,12 @@ class DanceClass(db.Model):
             'min_capacity': self.min_capacity,
             'price': self.price,
             'instructor_id': self.instructor_id,
+            'images': self.images or [],
+            'videos': self.videos or [],
+            'artist_details': self.artist_details or {},
+            'what_to_bring': self.what_to_bring,
+            'prerequisites': self.prerequisites,
+            'tags': self.tags or [],
             'is_active': self.is_active,
         }
 

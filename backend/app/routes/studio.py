@@ -795,90 +795,106 @@ def create_class():
     if not data.get('name'):
         return jsonify({'error': 'Class name is required'}), 400
     
-    # Create the class
-    dance_class = DanceClass(
-        id=str(uuid.uuid4()),
-        studio_id=user.studio_id,
-        name=data['name'],
-        description=data.get('description', ''),
-        dance_style=data.get('dance_style', ''),
-        level=data.get('level', 'All Levels'),
-        duration_minutes=int(data.get('duration_minutes', 60)),
-        max_capacity=int(data.get('max_capacity', 20)),
-        min_capacity=int(data.get('min_capacity', 3)),
-        price=float(data.get('price', 500)),
-        instructor_id=data.get('instructor_id'),
-        is_active=True
-    )
-    
-    db.session.add(dance_class)
-    
-    # Create sessions if dates provided
-    sessions_created = []
-    if data.get('session_dates'):
-        for session_date_str in data['session_dates']:
-            try:
-                session_date = datetime.strptime(session_date_str, '%Y-%m-%d').date()
-                
-                # Parse time or use default
-                start_time_str = data.get('start_time', '18:00')
-                start_parts = start_time_str.split(':')
-                start_time = time(int(start_parts[0]), int(start_parts[1]))
-                
-                end_time = time(
-                    (start_time.hour + dance_class.duration_minutes // 60) % 24,
-                    start_time.minute + dance_class.duration_minutes % 60
-                )
-                
-                # Create schedule
-                schedule = ClassSchedule(
-                    id=str(uuid.uuid4()),
-                    studio_id=user.studio_id,
-                    class_id=dance_class.id,
-                    specific_date=session_date,
-                    day_of_week=session_date.weekday(),
-                    start_time=start_time,
-                    end_time=end_time,
-                    room=data.get('room', 'Main Studio'),
-                    instructor_id=data.get('instructor_id'),
-                    is_recurring=False,
-                    current_enrollment=0
-                )
-                db.session.add(schedule)
-                
-                # Create session (ClassSession uses room_id, not room)
-                session = ClassSession(
-                    id=str(uuid.uuid4()),
-                    studio_id=user.studio_id,
-                    schedule_id=schedule.id,
-                    class_id=dance_class.id,
-                    date=session_date,
-                    start_time=datetime.combine(session_date, start_time),
-                    end_time=datetime.combine(session_date, end_time),
-                    instructor_id=data.get('instructor_id'),
-                    max_capacity=dance_class.max_capacity,
-                    booked_count=0,
-                    status='SCHEDULED'
-                )
-                db.session.add(session)
-                sessions_created.append(session_date_str)
-                
-            except Exception as e:
-                print(f"Error creating session for date {session_date_str}: {e}")
-                continue
-    
-    db.session.commit()
-    
-    instructor = User.query.get(dance_class.instructor_id) if dance_class.instructor_id else None
-    
-    return jsonify({
-        'message': 'Class created successfully',
-        'class': {
-            **dance_class.to_dict(),
-            'instructor_name': instructor.name if instructor else 'TBA'
-        },
-        'sessions_created': sessions_created
-    }), 201
+    try:
+        # Create the class
+        dance_class = DanceClass(
+            id=str(uuid.uuid4()),
+            studio_id=user.studio_id,
+            name=data['name'],
+            description=data.get('description', ''),
+            dance_style=data.get('dance_style', ''),
+            level=data.get('level', 'All Levels'),
+            duration_minutes=int(data.get('duration_minutes', 60)),
+            max_capacity=int(data.get('max_capacity', 20)),
+            min_capacity=int(data.get('min_capacity', 3)),
+            price=float(data.get('price', 500)),
+            instructor_id=data.get('instructor_id'),
+            is_active=True
+        )
+        
+        db.session.add(dance_class)
+        db.session.flush()  # Get the class ID
+        
+        # Create sessions if dates provided
+        sessions_created = []
+        session_errors = []
+        
+        if data.get('session_dates'):
+            for session_date_str in data['session_dates']:
+                try:
+                    session_date = datetime.strptime(session_date_str, '%Y-%m-%d').date()
+                    
+                    # Parse time or use default
+                    start_time_str = data.get('start_time', '18:00')
+                    start_parts = start_time_str.split(':')
+                    start_time = time(int(start_parts[0]), int(start_parts[1]))
+                    
+                    # Calculate end time properly handling overflow
+                    duration = dance_class.duration_minutes
+                    end_minutes = start_time.minute + (duration % 60)
+                    end_hours = start_time.hour + (duration // 60) + (end_minutes // 60)
+                    end_time = time(end_hours % 24, end_minutes % 60)
+                    
+                    # Create schedule
+                    schedule = ClassSchedule(
+                        id=str(uuid.uuid4()),
+                        studio_id=user.studio_id,
+                        class_id=dance_class.id,
+                        specific_date=session_date,
+                        day_of_week=session_date.weekday(),
+                        start_time=start_time,
+                        end_time=end_time,
+                        room=data.get('room', 'Main Studio'),
+                        instructor_id=data.get('instructor_id'),
+                        is_recurring=False,
+                        current_enrollment=0
+                    )
+                    db.session.add(schedule)
+                    db.session.flush()  # Get the schedule ID
+                    
+                    # Create session - room_id is optional, don't require it
+                    session = ClassSession(
+                        id=str(uuid.uuid4()),
+                        studio_id=user.studio_id,
+                        schedule_id=schedule.id,
+                        class_id=dance_class.id,
+                        date=session_date,
+                        start_time=datetime.combine(session_date, start_time),
+                        end_time=datetime.combine(session_date, end_time),
+                        instructor_id=data.get('instructor_id'),
+                        max_capacity=dance_class.max_capacity,
+                        booked_count=0,
+                        status='SCHEDULED',
+                        room_id=None  # Explicitly set to None since we don't have rooms
+                    )
+                    db.session.add(session)
+                    sessions_created.append(session_date_str)
+                    
+                except Exception as e:
+                    session_errors.append(f"{session_date_str}: {str(e)}")
+                    continue
+        
+        db.session.commit()
+        
+        instructor = User.query.get(dance_class.instructor_id) if dance_class.instructor_id else None
+        
+        response = {
+            'message': 'Class created successfully',
+            'class': {
+                **dance_class.to_dict(),
+                'instructor_name': instructor.name if instructor else 'TBA'
+            },
+            'sessions_created': sessions_created
+        }
+        
+        if session_errors:
+            response['session_errors'] = session_errors
+        
+        return jsonify(response), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to create class: {str(e)}'}), 500
 
 
 @studio_bp.route('/classes/<class_id>', methods=['PUT'])

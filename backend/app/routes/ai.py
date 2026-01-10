@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import asyncio
+from datetime import datetime, timedelta
+from sqlalchemy import func
 
-from app.models import User, Conversation, Message, StudioKnowledge, Contact, Studio, DanceClass
+from app.models import User, Conversation, Message, StudioKnowledge, Contact, Studio, DanceClass, Booking, ClassSession
 from app.services.ai_service import AIService
 from app.services.ai_agents import ConversationAgent, LeadScoringAgent, FollowUpAgent, ResponseAgent
 from app.llm import get_llm_provider

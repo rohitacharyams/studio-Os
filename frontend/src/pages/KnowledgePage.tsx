@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import type { StudioKnowledge } from '@/types'
-import { Plus, Edit, Trash2, X, BookOpen, FileText, HelpCircle, DollarSign, Calendar } from 'lucide-react'
+import { Plus, Edit, Trash2, X, BookOpen, FileText, HelpCircle, DollarSign, Calendar, Download, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 import toast from 'react-hot-toast'
 
@@ -38,6 +38,21 @@ export default function KnowledgePage() {
     },
   })
 
+  // Load default templates mutation
+  const loadTemplatesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/studio/knowledge/load-templates')
+      return response.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge'] })
+      toast.success(`Loaded ${data.created} templates${data.skipped > 0 ? ` (${data.skipped} already existed)` : ''}`)
+    },
+    onError: () => {
+      toast.error('Failed to load templates')
+    },
+  })
+
   // Delete item mutation
   const deleteItemMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -62,16 +77,30 @@ export default function KnowledgePage() {
           <h1 className="text-2xl font-bold text-gray-900">Knowledge Base</h1>
           <p className="text-sm text-gray-500">Information for AI-powered responses</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingItem(null)
-            setShowModal(true)
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Knowledge
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadTemplatesMutation.mutate()}
+            disabled={loadTemplatesMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+          >
+            {loadTemplatesMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Load Templates
+          </button>
+          <button
+            onClick={() => {
+              setEditingItem(null)
+              setShowModal(true)
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Knowledge
+          </button>
+        </div>
       </div>
 
       {/* Info banner */}

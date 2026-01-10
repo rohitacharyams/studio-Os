@@ -33,6 +33,17 @@ export interface Studio {
   instagram_connected: boolean
   created_at: string
   updated_at: string
+  // Media fields
+  photos?: string[]
+  videos?: string[]
+  testimonials?: Array<{name: string, text: string, rating: number}>
+  amenities?: string[]
+  social_links?: {
+    instagram?: string
+    youtube?: string
+    facebook?: string
+  }
+  about?: string
 }
 
 export type Channel = 'EMAIL' | 'WHATSAPP' | 'INSTAGRAM'

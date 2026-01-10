@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, User, Users, ChevronLeft, ChevronRight,
-  Plus, X, AlertCircle, Loader2, Repeat, Check, Copy, Link, ExternalLink, Trash2
+  Plus, X, AlertCircle, Loader2, Repeat, Check, Copy, Link, ExternalLink, Trash2, Edit3
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -103,6 +103,19 @@ export default function CalendarPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [notifyOnDelete, setNotifyOnDelete] = useState(true);
+  
+  // Edit session state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [notifyOnEdit, setNotifyOnEdit] = useState(true);
+  const [editForm, setEditForm] = useState({
+    date: '',
+    start_time: '',
+    max_capacity: 20,
+    instructor_id: '',
+    room: '',
+    notes: ''
+  });
   
   const [createForm, setCreateForm] = useState<CreateClassForm>({
     name: '',
@@ -448,6 +461,58 @@ export default function CalendarPage() {
     }
   };
 
+
+  // Open edit modal with session data
+  const openEditModal = () => {
+    if (!selectedSession) return;
+    
+    // Parse the start_time from the ISO string
+    const startTime = new Date(selectedSession.start_time);
+    const timeStr = startTime.toTimeString().slice(0, 5); // HH:MM format
+    
+    setEditForm({
+      date: selectedSession.date,
+      start_time: timeStr,
+      max_capacity: selectedSession.max_capacity,
+      instructor_id: '', // We don't have instructor_id in session, only name
+      room: '',
+      notes: ''
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle update session
+  const handleUpdateSession = async () => {
+    if (!selectedSession) return;
+    
+    setEditLoading(true);
+    try {
+      const response = await api.put(`/bookings/sessions/${selectedSession.id}`, {
+        date: editForm.date,
+        start_time: editForm.start_time,
+        max_capacity: editForm.max_capacity,
+        notify_customers: notifyOnEdit,
+        change_notes: editForm.notes
+      });
+      
+      toast.success('Class updated successfully');
+      
+      // Update the session in the list
+      setSessions(prev => prev.map(s => 
+        s.id === selectedSession.id 
+          ? { ...s, ...response.data.session }
+          : s
+      ));
+      
+      setShowEditModal(false);
+      setSelectedSession(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to update class');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
@@ -740,17 +805,141 @@ export default function CalendarPage() {
                 View Bookings ({selectedSession.booked_count})
               </button>
             </div>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="w-full mt-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Cancel Class
-            </button>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={openEditModal}
+                className="flex-1 py-2 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2"
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit Class
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex-1 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Cancel Class
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+
+
+      {/* Edit Session Modal */}
+      {showEditModal && selectedSession && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Edit Class</h3>
+                <p className="text-sm text-gray-500">{selectedSession.class_name}</p>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              
+              {/* Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                <input
+                  type="time"
+                  value={editForm.start_time}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, start_time: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              
+              {/* Max Capacity */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Capacity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editForm.max_capacity}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, max_capacity: parseInt(e.target.value) || 1 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              
+              {/* Notify Students */}
+              {selectedSession.booked_count > 0 && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={notifyOnEdit}
+                      onChange={(e) => setNotifyOnEdit(e.target.checked)}
+                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm text-gray-700">
+                      Notify {selectedSession.booked_count} student(s) about changes
+                    </span>
+                  </label>
+                  
+                  {notifyOnEdit && (
+                    <div className="mt-2">
+                      <textarea
+                        value={editForm.notes}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Add a note about the changes (optional)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
+                        rows={2}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                disabled={editLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateSession}
+                disabled={editLoading}
+                className="flex-1 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {editLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && selectedSession && (

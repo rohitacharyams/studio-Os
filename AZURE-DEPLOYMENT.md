@@ -48,7 +48,7 @@ Driver={ODBC Driver 18 for SQL Server};Server=tcp:studioos-sql-server.database.w
 | App Service Plan | `studioos-plan` |
 | Plan SKU | B1 (Basic, Linux) |
 | Estimated Cost | ~$13/month |
-| Container Image | `studiosoacr.azurecr.io/studio-os-api:v3` |
+| Container Image | `studiosoacr.azurecr.io/studio-os-api:v13` |
 
 ### Demo Login Credentials
 | Field | Value |
@@ -56,6 +56,14 @@ Driver={ODBC Driver 18 for SQL Server};Server=tcp:studioos-sql-server.database.w
 | Admin Email | `admin@rhythmdance.com` |
 | Admin Password | `Admin@123` |
 | Studio Name | Rhythm Dance Academy |
+
+### Platform Super Admin (Whitelisted)
+| Field | Value |
+|-------|-------|
+| Username | `rohitOwner` |
+| Password | `StormyDusk@123` |
+| Login URL | https://studio-os.netlify.app/admin/login |
+| Dashboard URL | https://studio-os.netlify.app/admin/dashboard |
 
 ### LLM Provider (FREE)
 | Field | Value |

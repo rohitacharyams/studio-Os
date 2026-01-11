@@ -73,6 +73,7 @@ def create_app(config_name='default'):
     from app.routes.whatsapp import bp as whatsapp_bp
     from app.routes.notifications import notifications_bp
     from app.routes.email import email_bp
+    from app.routes.admin import admin_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(conversations_bp, url_prefix='/api/conversations')
@@ -91,6 +92,7 @@ def create_app(config_name='default'):
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(whatsapp_bp, url_prefix='/api/whatsapp')
     app.register_blueprint(email_bp)  # Already has /api/email prefix
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')  # Platform admin routes
     
     # Health check endpoint
     @app.route('/health')

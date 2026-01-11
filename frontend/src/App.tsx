@@ -17,6 +17,8 @@ import CheckoutPage from '@/pages/CheckoutPage'
 import MyBookingsPage from '@/pages/MyBookingsPage'
 import PublicBookingPage from '@/pages/PublicBookingPage'
 import ExplorePage from '@/pages/ExplorePage'
+import AdminLoginPage from '@/pages/AdminLoginPage'
+import AdminDashboardPage from '@/pages/AdminDashboardPage'
 
 function StudioPrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user, studio } = useAuthStore()
@@ -103,6 +105,10 @@ function App() {
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+
+      {/* Admin routes */}
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
       
       {/* Public booking pages */}
       <Route path="/book/:studioSlug" element={<PublicBookingPage />} />

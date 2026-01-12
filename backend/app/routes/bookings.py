@@ -197,7 +197,7 @@ def create_session():
         date=session_date,
         start_time=start_time,
         end_time=end_time,
-        max_capacity=data.get('max_capacity', dance_class.max_students or 15),
+        max_capacity=data.get('max_capacity', dance_class.max_capacity or 15),
         instructor_id=data.get('instructor_id', dance_class.instructor_id),
         room_id=data.get('room_id'),
         status='SCHEDULED',

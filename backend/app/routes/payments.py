@@ -14,7 +14,7 @@ from app import db
 from app.models import (
     User, Contact, Payment, Refund, ClassPack, ClassPackPurchase,
     SubscriptionPlan, Subscription, Wallet, WalletTransaction,
-    DiscountCode, Booking, ClassSession
+    DiscountCode, Booking, ClassSession, Studio
 )
 
 payments_bp = Blueprint('payments', __name__, url_prefix='/api/payments')

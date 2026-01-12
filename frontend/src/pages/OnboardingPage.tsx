@@ -6,6 +6,7 @@ import {
   Instagram, Mail, Phone, Globe, MapPin, Clock
 } from 'lucide-react';
 import api from '../lib/api';
+import LocationSelect from '../components/LocationSelect';
 
 // Step indicator component
 function StepIndicator({ currentStep, steps }: { currentStep: number; steps: string[] }) {
@@ -64,10 +65,23 @@ export default function OnboardingPage() {
     email: '',
     website: '',
     timezone: 'Asia/Kolkata',
+    country_code: 'IN',
+    state_code: '',
     businessHours: {
       open: '09:00',
       close: '21:00'
     }
+  });
+  
+  const [locationData, setLocationData] = useState({
+    country: 'India',
+    country_code: 'IN',
+    state: '',
+    state_code: '',
+    city: '',
+    postal_code: '',
+    address: '',
+    timezone: 'Asia/Kolkata'
   });
   
   const [channels, setChannels] = useState({
@@ -112,7 +126,14 @@ export default function OnboardingPage() {
       const stepData: any = {};
       
       if (currentStep === 0) {
-        Object.assign(stepData, studioData);
+        // Merge studioData with locationData for Step 0
+        Object.assign(stepData, studioData, {
+          city: locationData.city,
+          timezone: locationData.timezone,
+          country_code: locationData.country_code,
+          state_code: locationData.state_code,
+          address: locationData.address || studioData.address
+        });
       } else if (currentStep === 1) {
         stepData.whatsapp = channels.whatsapp;
         stepData.gmail = channels.gmail;
@@ -257,16 +278,17 @@ export default function OnboardingPage() {
                 />
               </div>
               
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="w-4 h-4 inline mr-1" /> Address
-                </label>
-                <input
-                  type="text"
-                  value={studioData.address}
-                  onChange={(e) => setStudioData({ ...studioData, address: e.target.value })}
-                  placeholder="123 Dance Street, Mumbai 400001"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              {/* Location Selection */}
+              <div className="md:col-span-2 border-t pt-6 mt-2">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-purple-600" />
+                  Studio Location & Timezone
+                </h3>
+                <LocationSelect
+                  value={locationData}
+                  onChange={setLocationData}
+                  showTimezone={true}
+                  required={true}
                 />
               </div>
               

@@ -51,5 +51,9 @@ google-api-python-client==2.111.0
 # Database (Azure SQL)
 pyodbc==5.0.1
 
+# Location Services
+pycountry==23.12.11
+timezonefinder==6.2.0
+
 # Development
 gunicorn==21.2.0

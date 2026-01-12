@@ -70,6 +70,7 @@ def create_app(config_name='default'):
     from app.routes.scheduling import scheduling_bp
     from app.routes.bookings import bookings_bp
     from app.routes.payments import payments_bp
+    from app.routes.payments_public import payments_public_bp
     from app.routes.whatsapp import bp as whatsapp_bp
     from app.routes.notifications import notifications_bp
     from app.routes.email import email_bp
@@ -89,6 +90,7 @@ def create_app(config_name='default'):
     app.register_blueprint(scheduling_bp, url_prefix='/api/scheduling')
     app.register_blueprint(bookings_bp)  # Already has /api/bookings prefix
     app.register_blueprint(payments_bp)  # Already has /api/payments prefix
+    app.register_blueprint(payments_public_bp)  # Public payment endpoints
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(whatsapp_bp, url_prefix='/api/whatsapp')
     app.register_blueprint(email_bp)  # Already has /api/email prefix

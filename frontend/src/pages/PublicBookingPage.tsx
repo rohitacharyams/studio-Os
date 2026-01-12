@@ -263,7 +263,8 @@ export default function PublicBookingPage() {
     setProcessing(true);
     try {
       // Create order
-      const orderResponse = await api.post('/payments/create-order', {
+      const orderResponse = await api.post('/payments/public/create-order', {
+        studio_slug: studioSlug,
         session_id: selectedSession.id,
         amount: selectedSession.drop_in_price,
         customer_name: formData.name,
@@ -284,7 +285,8 @@ export default function PublicBookingPage() {
         handler: async (response: any) => {
           // Verify payment
           try {
-            await api.post('/payments/verify', {
+            await api.post('/payments/public/verify', {
+              studio_slug: studioSlug,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature

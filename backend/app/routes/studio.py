@@ -74,6 +74,20 @@ def update_studio():
     if 'business_hours_close' in data:
         studio.business_hours_close = data['business_hours_close']
     
+    # Media fields
+    if 'photos' in data:
+        studio.photos = data['photos'] if isinstance(data['photos'], list) else []
+    if 'videos' in data:
+        studio.videos = data['videos'] if isinstance(data['videos'], list) else []
+    if 'testimonials' in data:
+        studio.testimonials = data['testimonials'] if isinstance(data['testimonials'], list) else []
+    if 'amenities' in data:
+        studio.amenities = data['amenities'] if isinstance(data['amenities'], list) else []
+    if 'social_links' in data:
+        studio.social_links = data['social_links'] if isinstance(data['social_links'], dict) else {}
+    if 'about' in data:
+        studio.about = data['about']
+    
     try:
         db.session.commit()
         return jsonify({'studio': studio.to_dict()})
@@ -361,7 +375,8 @@ def get_public_studio(slug):
             'timezone': studio.timezone,
             'currency': studio.currency,
             'business_hours_open': studio.business_hours_open,
-            'business_hours_close': studio.business_hours_close
+            'business_hours_close': studio.business_hours_close,
+            'theme_settings': studio.theme_settings or {}
         },
         'classes': [c.to_dict() for c in classes]
     })
@@ -382,7 +397,8 @@ def get_settings():
         'settings': {
             'email_settings': studio.email_settings or {},
             'whatsapp_settings': studio.whatsapp_settings or {},
-            'instagram_settings': studio.instagram_settings or {}
+            'instagram_settings': studio.instagram_settings or {},
+            'theme_settings': studio.theme_settings or {}
         }
     })
 
@@ -413,10 +429,12 @@ def update_settings():
         studio.whatsapp_settings = {**(studio.whatsapp_settings or {}), **settings['whatsapp_settings']}
     if 'instagram_settings' in settings:
         studio.instagram_settings = {**(studio.instagram_settings or {}), **settings['instagram_settings']}
+    if 'theme_settings' in settings:
+        studio.theme_settings = {**(studio.theme_settings or {}), **settings['theme_settings']}
     
     # Store any additional settings in whatsapp_settings as a catch-all for now
     for key, value in settings.items():
-        if key not in ['email_settings', 'whatsapp_settings', 'instagram_settings']:
+        if key not in ['email_settings', 'whatsapp_settings', 'instagram_settings', 'theme_settings']:
             if not studio.whatsapp_settings:
                 studio.whatsapp_settings = {}
             studio.whatsapp_settings[key] = value
@@ -428,7 +446,8 @@ def update_settings():
             'settings': {
                 'email_settings': studio.email_settings or {},
                 'whatsapp_settings': studio.whatsapp_settings or {},
-                'instagram_settings': studio.instagram_settings or {}
+                'instagram_settings': studio.instagram_settings or {},
+                'theme_settings': studio.theme_settings or {}
             }
         })
     except Exception as e:
@@ -580,6 +599,72 @@ def update_payment_settings():
     try:
         db.session.commit()
         return jsonify({'settings': studio.payment_settings, 'message': 'Payment settings saved'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@studio_bp.route('/settings/theme', methods=['GET'])
+@jwt_required()
+def get_theme_settings():
+    """Get theme/color settings for public booking page."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    studio = user.studio
+    # Default colors if not set
+    default_theme = {
+        'primary_color': '#7c3aed',  # purple-600
+        'secondary_color': '#4f46e5',  # indigo-600
+        'primary_light': '#f3f4f6',  # purple-50
+        'secondary_light': '#eef2ff',  # indigo-50
+        'accent_color': '#7c3aed',  # purple-600
+        'text_color': '#1f2937',  # gray-900
+        'background_gradient_from': '#faf5ff',  # purple-50
+        'background_gradient_via': '#ffffff',  # white
+        'background_gradient_to': '#eef2ff',  # indigo-50
+    }
+    
+    theme_settings = studio.theme_settings or {}
+    # Merge with defaults
+    final_theme = {**default_theme, **theme_settings}
+    
+    return jsonify({'theme_settings': final_theme})
+
+
+@studio_bp.route('/settings/theme', methods=['PUT'])
+@jwt_required()
+def update_theme_settings():
+    """Update theme/color settings for public booking page."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    if user.role not in ['owner', 'admin']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
+    data = request.get_json()
+    studio = user.studio
+    
+    # Update theme settings
+    if not studio.theme_settings:
+        studio.theme_settings = {}
+    
+    # Update only provided fields
+    theme_updates = data.get('theme_settings', {})
+    studio.theme_settings = {**(studio.theme_settings or {}), **theme_updates}
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'theme_settings': studio.theme_settings
+        })
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

@@ -27,6 +27,17 @@ interface Studio {
   address?: string;
   phone?: string;
   description?: string;
+  theme_settings?: {
+    primary_color?: string;
+    secondary_color?: string;
+    primary_light?: string;
+    secondary_light?: string;
+    accent_color?: string;
+    text_color?: string;
+    background_gradient_from?: string;
+    background_gradient_via?: string;
+    background_gradient_to?: string;
+  };
 }
 
 interface BookingFormData {
@@ -47,6 +58,21 @@ export default function PublicBookingPage() {
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Default theme colors
+  const defaultTheme = {
+    primary_color: '#7c3aed',
+    secondary_color: '#4f46e5',
+    primary_light: '#f3f4f6',
+    secondary_light: '#eef2ff',
+    accent_color: '#7c3aed',
+    text_color: '#1f2937',
+    background_gradient_from: '#faf5ff',
+    background_gradient_via: '#ffffff',
+    background_gradient_to: '#eef2ff',
+  };
+  
+  const theme = studio?.theme_settings ? { ...defaultTheme, ...studio.theme_settings } : defaultTheme;
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [weekStart, setWeekStart] = useState(() => {
     const today = new Date();
@@ -99,7 +125,8 @@ export default function PublicBookingPage() {
         address: studioData.address ? `${studioData.address}${studioData.city ? ', ' + studioData.city : ''}` : undefined,
         phone: studioData.phone,
         logo: studioData.logo_url,
-        description: `Welcome to ${studioData.name}! Book your favorite classes online.`
+        description: `Welcome to ${studioData.name}! Book your favorite classes online.`,
+        theme_settings: studioData.theme_settings || {}
       });
       
       // Fetch available sessions for the week
@@ -316,7 +343,7 @@ export default function PublicBookingPage() {
           contact: formData.phone
         },
         theme: {
-          color: '#7c3aed'
+          color: theme.primary_color
         }
       };
 
@@ -380,19 +407,32 @@ export default function PublicBookingPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+        <Loader2 
+          className="w-8 h-8 animate-spin" 
+          style={{ color: theme.primary_color }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+    <div 
+      className="min-h-screen"
+      style={{
+        background: `linear-gradient(to bottom right, ${theme.background_gradient_from}, ${theme.background_gradient_via}, ${theme.background_gradient_to})`
+      }}
+    >
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl">
+              <div 
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl"
+                style={{
+                  background: `linear-gradient(to bottom right, ${theme.primary_color}, ${theme.secondary_color})`
+                }}
+              >
                 {studio?.name?.charAt(0) || 'S'}
               </div>
               <div>
@@ -405,7 +445,15 @@ export default function PublicBookingPage() {
               </div>
             </div>
             {studio?.phone && (
-              <a href={`tel:${studio.phone}`} className="flex items-center gap-1 sm:gap-2 text-gray-600 hover:text-purple-600 text-sm">
+              <a 
+                href={`tel:${studio.phone}`} 
+                className="flex items-center gap-1 sm:gap-2 text-gray-600 text-sm"
+                style={{ 
+                  '--hover-color': theme.primary_color 
+                } as React.CSSProperties}
+                onMouseEnter={(e) => e.currentTarget.style.color = theme.primary_color}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
+              >
                 <Phone className="w-4 h-4" />
                 <span className="hidden sm:inline">{studio.phone}</span>
               </a>
@@ -418,7 +466,12 @@ export default function PublicBookingPage() {
         {bookingStep === 'select' && (
           <>
             {/* Welcome banner */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white mb-4 sm:mb-8">
+            <div 
+              className="rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white mb-4 sm:mb-8"
+              style={{
+                background: `linear-gradient(to right, ${theme.primary_color}, ${theme.secondary_color})`
+              }}
+            >
               <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Book Your Next Class</h2>
               <p className="text-sm sm:text-base text-purple-100">Select a class below to reserve your spot</p>
             </div>
@@ -452,11 +505,30 @@ export default function PublicBookingPage() {
                     disabled={isPast(day)}
                     className={`flex-shrink-0 w-20 py-3 rounded-xl text-center transition-all ${
                       selectedDate.toDateString() === day.toDateString()
-                        ? 'bg-purple-600 text-white shadow-lg'
+                        ? 'text-white shadow-lg'
                         : isPast(day)
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-gray-50 text-gray-700 hover:bg-purple-50'
+                          : 'bg-gray-50 text-gray-700'
                     }`}
+                    style={
+                      selectedDate.toDateString() === day.toDateString()
+                        ? { backgroundColor: theme.primary_color }
+                        : !isPast(day)
+                          ? { 
+                              '--hover-bg': `${theme.primary_color}15` 
+                            } as React.CSSProperties
+                          : undefined
+                    }
+                    onMouseEnter={(e) => {
+                      if (!isPast(day) && selectedDate.toDateString() !== day.toDateString()) {
+                        e.currentTarget.style.backgroundColor = `${theme.primary_color}15`;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isPast(day) && selectedDate.toDateString() !== day.toDateString()) {
+                        e.currentTarget.style.backgroundColor = '#f9fafb';
+                      }
+                    }}
                   >
                     <div className="text-xs uppercase font-medium">
                       {day.toLocaleDateString('en-IN', { weekday: 'short' })}
@@ -492,7 +564,10 @@ export default function PublicBookingPage() {
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStyleColor(session.style)}`}>
                           {session.style}
                         </span>
-                        <span className="text-lg font-bold text-purple-600">
+                        <span 
+                          className="text-lg font-bold"
+                          style={{ color: theme.primary_color }}
+                        >
                           ₹{session.drop_in_price}
                         </span>
                       </div>
@@ -516,9 +591,26 @@ export default function PublicBookingPage() {
                         disabled={session.spots_available === 0}
                         className={`w-full py-2.5 rounded-lg font-medium transition-colors ${
                           session.spots_available > 0
-                            ? 'bg-purple-600 text-white hover:bg-purple-700'
+                            ? 'text-white'
                             : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         }`}
+                        style={
+                          session.spots_available > 0
+                            ? { 
+                                backgroundColor: theme.primary_color,
+                              }
+                            : undefined
+                        }
+                        onMouseEnter={(e) => {
+                          if (session.spots_available > 0) {
+                            e.currentTarget.style.opacity = '0.9';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (session.spots_available > 0) {
+                            e.currentTarget.style.opacity = '1';
+                          }
+                        }}
                       >
                         {session.spots_available > 0 ? 'Book Now' : 'Class Full'}
                       </button>
@@ -535,13 +627,20 @@ export default function PublicBookingPage() {
           <div className="max-w-lg mx-auto">
             <button
               onClick={resetBooking}
-              className="flex items-center gap-2 text-gray-600 hover:text-purple-600 mb-6"
+              className="flex items-center gap-2 text-gray-600 mb-6"
+              onMouseEnter={(e) => e.currentTarget.style.color = theme.primary_color}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
             >
               <ChevronLeft className="w-4 h-4" /> Back to classes
             </button>
 
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 text-white">
+              <div 
+                className="p-6 text-white"
+                style={{
+                  background: `linear-gradient(to right, ${theme.primary_color}, ${theme.secondary_color})`
+                }}
+              >
                 <h2 className="text-xl font-bold mb-1">{selectedSession.class_name}</h2>
                 <p className="text-purple-100">with {selectedSession.instructor_name}</p>
                 <div className="flex items-center gap-4 mt-4 text-sm">
@@ -571,7 +670,10 @@ export default function PublicBookingPage() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Enter your name"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ '--focus-ring': theme.primary_color } as React.CSSProperties}
+                    onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.primary_color}40`}
+                    onBlur={(e) => e.currentTarget.style.boxShadow = ''}
                   />
                 </div>
 
@@ -585,7 +687,10 @@ export default function PublicBookingPage() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+91 98765 43210"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ '--focus-ring': theme.primary_color } as React.CSSProperties}
+                    onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.primary_color}40`}
+                    onBlur={(e) => e.currentTarget.style.boxShadow = ''}
                   />
                 </div>
 
@@ -598,13 +703,19 @@ export default function PublicBookingPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="you@example.com"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ '--focus-ring': theme.primary_color } as React.CSSProperties}
+                    onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.primary_color}40`}
+                    onBlur={(e) => e.currentTarget.style.boxShadow = ''}
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors mt-6"
+                  className="w-full py-3 text-white rounded-lg font-semibold transition-colors mt-6"
+                  style={{ backgroundColor: theme.primary_color }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   Continue to Payment
                 </button>
@@ -618,7 +729,9 @@ export default function PublicBookingPage() {
           <div className="max-w-lg mx-auto">
             <button
               onClick={() => setBookingStep('details')}
-              className="flex items-center gap-2 text-gray-600 hover:text-purple-600 mb-6"
+              className="flex items-center gap-2 text-gray-600 mb-6"
+              onMouseEnter={(e) => e.currentTarget.style.color = theme.primary_color}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
             >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
@@ -642,7 +755,12 @@ export default function PublicBookingPage() {
                   
                   <div className="pt-3 border-t border-gray-200 flex justify-between">
                     <span className="font-semibold">Total</span>
-                    <span className="font-bold text-purple-600 text-xl">₹{selectedSession.drop_in_price}</span>
+                    <span 
+                      className="font-bold text-xl"
+                      style={{ color: theme.primary_color }}
+                    >
+                      ₹{selectedSession.drop_in_price}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -653,7 +771,14 @@ export default function PublicBookingPage() {
                 <button
                   onClick={handlePayment}
                   disabled={processing}
-                  className="w-full flex items-center justify-center gap-3 py-4 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-3 py-4 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
+                  style={{ backgroundColor: theme.primary_color }}
+                  onMouseEnter={(e) => {
+                    if (!processing) e.currentTarget.style.opacity = '0.9';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!processing) e.currentTarget.style.opacity = '1';
+                  }}
                 >
                   {processing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -677,7 +802,19 @@ export default function PublicBookingPage() {
                 <button
                   onClick={handlePayLater}
                   disabled={processing}
-                  className="w-full flex items-center justify-center gap-3 py-4 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:border-purple-300 hover:bg-purple-50 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-3 py-4 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold transition-colors disabled:opacity-50"
+                  onMouseEnter={(e) => {
+                    if (!processing) {
+                      e.currentTarget.style.borderColor = `${theme.primary_color}80`;
+                      e.currentTarget.style.backgroundColor = `${theme.primary_color}15`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!processing) {
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
                 >
                   {processing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -710,11 +847,24 @@ export default function PublicBookingPage() {
                 Your spot has been reserved. See you at the studio!
               </p>
 
-              <div className="bg-purple-50 rounded-xl p-4 mb-6 text-left">
+              <div 
+                className="rounded-xl p-4 mb-6 text-left"
+                style={{ 
+                  backgroundColor: `${theme.primary_color}15`
+                }}
+              >
                 <div className="text-sm text-gray-600 mb-1">Booking ID</div>
-                <div className="font-mono font-bold text-purple-600">#{bookingId || 'DEMO-1234'}</div>
+                <div 
+                  className="font-mono font-bold"
+                  style={{ color: theme.primary_color }}
+                >
+                  #{bookingId || 'DEMO-1234'}
+                </div>
                 
-                <div className="mt-4 pt-4 border-t border-purple-100">
+                  <div 
+                    className="mt-4 pt-4 border-t"
+                    style={{ borderColor: `${theme.primary_color}30` }}
+                  >
                   <div className="font-semibold text-gray-900">{selectedSession.class_name}</div>
                   <div className="text-sm text-gray-600">
                     {new Date(selectedSession.date).toLocaleDateString('en-IN', { 
@@ -734,7 +884,10 @@ export default function PublicBookingPage() {
                 
                 <button
                   onClick={resetBooking}
-                  className="w-full py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                  className="w-full py-3 text-white rounded-lg font-semibold transition-colors"
+                  style={{ backgroundColor: theme.primary_color }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   Book Another Class
                 </button>
@@ -753,7 +906,15 @@ export default function PublicBookingPage() {
       {/* Footer */}
       <footer className="bg-white border-t mt-12 py-6">
         <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
-          <p>Powered by <span className="font-semibold text-purple-600">Studio OS</span></p>
+          <p>
+            Powered by{' '}
+            <span 
+              className="font-semibold"
+              style={{ color: theme.primary_color }}
+            >
+              Studio OS
+            </span>
+          </p>
         </div>
       </footer>
     </div>

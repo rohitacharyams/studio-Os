@@ -56,6 +56,15 @@ class Studio(db.Model):
     whatsapp_settings = db.Column(db.JSON, default=dict)
     instagram_settings = db.Column(db.JSON, default=dict)
     payment_settings = db.Column(db.JSON, default=dict)
+    theme_settings = db.Column(db.JSON, default=dict)  # Color/theme configuration for public booking page
+    
+    # Media fields (JSON fields)
+    photos = db.Column(db.JSON, default=list)  # List of photo URLs
+    videos = db.Column(db.JSON, default=list)  # List of video URLs (YouTube, Vimeo, etc.)
+    testimonials = db.Column(db.JSON, default=list)  # List of testimonials: [{name, text, rating}]
+    amenities = db.Column(db.JSON, default=list)  # List of amenity strings
+    social_links = db.Column(db.JSON, default=dict)  # {instagram, youtube, facebook}
+    about = db.Column(db.Text)  # Studio description/about text
     
     # Payment settings (legacy)
     razorpay_key_id = db.Column(db.String(255))
@@ -101,6 +110,13 @@ class Studio(db.Model):
             'whatsapp_connected': bool(self.whatsapp_settings and self.whatsapp_settings.get('connected')),
             'email_connected': bool(self.email_settings and self.email_settings.get('connected')),
             'instagram_connected': bool(self.instagram_settings and self.instagram_settings.get('connected')),
+            'theme_settings': self.theme_settings or {},
+            'photos': self.photos or [],
+            'videos': self.videos or [],
+            'testimonials': self.testimonials or [],
+            'amenities': self.amenities or [],
+            'social_links': self.social_links or {},
+            'about': self.about,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

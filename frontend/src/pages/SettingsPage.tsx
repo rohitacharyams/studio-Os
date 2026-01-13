@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import api from '@/lib/api'
-import { Building, User, Mail, Phone, Save, Instagram, ExternalLink, CheckCircle, AlertCircle, CreditCard, Copy, Link, Loader2, Image, Video, Star, Plus, Trash2, X } from 'lucide-react'
+import { Building, User, Mail, Phone, Save, Instagram, ExternalLink, CheckCircle, AlertCircle, CreditCard, Copy, Link, Loader2, Image, Video, Star, Plus, Trash2, X, Palette } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'studio' | 'media' | 'profile' | 'payment' | 'email' | 'whatsapp' | 'instagram'>('studio')
+  const [activeTab, setActiveTab] = useState<'studio' | 'media' | 'profile' | 'payment' | 'email' | 'whatsapp' | 'instagram' | 'theme'>('studio')
 
   return (
     <div className="p-6">
@@ -23,6 +23,7 @@ export default function SettingsPage() {
             { id: 'media', label: 'Media', icon: Image },
             { id: 'profile', label: 'Profile', icon: User },
             { id: 'payment', label: 'Payment', icon: CreditCard },
+            { id: 'theme', label: 'Theme', icon: Palette },
             { id: 'email', label: 'Email', icon: Mail },
             { id: 'whatsapp', label: 'WhatsApp', icon: Phone },
             { id: 'instagram', label: 'Instagram', icon: Instagram },
@@ -48,6 +49,7 @@ export default function SettingsPage() {
       {activeTab === 'media' && <MediaSettings />}
       {activeTab === 'profile' && <ProfileSettings />}
       {activeTab === 'payment' && <PaymentSettings />}
+      {activeTab === 'theme' && <ThemeSettings />}
       {activeTab === 'email' && <EmailSettings />}
       {activeTab === 'whatsapp' && <WhatsAppSettings />}
       {activeTab === 'instagram' && <InstagramSettings />}
@@ -1467,6 +1469,341 @@ function InstagramSettings() {
         <Save className="w-4 h-4" />
         {mutation.isPending ? 'Saving...' : 'Save Settings'}
       </button>
+    </form>
+  )
+}
+
+function ThemeSettings() {
+  const queryClient = useQueryClient()
+  const { studio } = useAuthStore()
+  
+  // Default colors
+  const defaultTheme = {
+    primary_color: '#7c3aed',  // purple-600
+    secondary_color: '#4f46e5',  // indigo-600
+    primary_light: '#f3f4f6',  // purple-50
+    secondary_light: '#eef2ff',  // indigo-50
+    accent_color: '#7c3aed',  // purple-600
+    text_color: '#1f2937',  // gray-900
+    background_gradient_from: '#faf5ff',  // purple-50
+    background_gradient_via: '#ffffff',  // white
+    background_gradient_to: '#eef2ff',  // indigo-50
+  }
+  
+  const [themeSettings, setThemeSettings] = useState(defaultTheme)
+  
+  // Fetch current theme settings
+  const { data, isLoading } = useQuery({
+    queryKey: ['theme-settings'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('/studio/settings/theme')
+        return response.data.theme_settings
+      } catch {
+        return defaultTheme
+      }
+    },
+  })
+  
+  // Update form when data loads
+  useEffect(() => {
+    if (data) {
+      setThemeSettings({ ...defaultTheme, ...data })
+    }
+  }, [data])
+  
+  const mutation = useMutation({
+    mutationFn: async (settings: typeof themeSettings) => {
+      const response = await api.put('/studio/settings/theme', {
+        theme_settings: settings
+      })
+      return response.data.theme_settings
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['theme-settings'] })
+      toast.success('Theme settings saved')
+    },
+    onError: () => {
+      toast.error('Failed to save theme settings')
+    },
+  })
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    mutation.mutate(themeSettings)
+  }
+  
+  const handleColorChange = (key: keyof typeof themeSettings, value: string) => {
+    setThemeSettings({ ...themeSettings, [key]: value })
+  }
+  
+  const resetToDefaults = () => {
+    setThemeSettings(defaultTheme)
+  }
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+  
+  return (
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+      {/* Preview Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Palette className="w-5 h-5 text-primary-600" />
+          Preview
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          See how your colors will look on the public booking page
+        </p>
+        
+        <div 
+          className="rounded-xl p-6 mb-4"
+          style={{
+            background: `linear-gradient(to bottom right, ${themeSettings.background_gradient_from}, ${themeSettings.background_gradient_via}, ${themeSettings.background_gradient_to})`
+          }}
+        >
+          <div 
+            className="rounded-xl p-4 text-white mb-3"
+            style={{ background: `linear-gradient(to right, ${themeSettings.primary_color}, ${themeSettings.secondary_color})` }}
+          >
+            <h4 className="font-bold text-lg">Book Your Next Class</h4>
+            <p className="text-sm opacity-90">Select a class below to reserve your spot</p>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <span 
+                className="px-3 py-1 rounded-full text-xs font-medium"
+                style={{ 
+                  backgroundColor: `${themeSettings.primary_color}20`,
+                  color: themeSettings.primary_color,
+                  border: `1px solid ${themeSettings.primary_color}40`
+                }}
+              >
+                Hip-Hop
+              </span>
+              <span 
+                className="text-lg font-bold"
+                style={{ color: themeSettings.primary_color }}
+              >
+                ₹500
+              </span>
+            </div>
+            <h5 className="font-semibold mb-1" style={{ color: themeSettings.text_color }}>
+              Hip Hop Beginner
+            </h5>
+            <button
+              type="button"
+              className="w-full py-2 rounded-lg font-medium mt-3 text-white transition-colors"
+              style={{ 
+                backgroundColor: themeSettings.primary_color,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.9'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1'
+              }}
+            >
+              Book Now
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Color Configuration */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Color Configuration</h3>
+        <p className="text-sm text-gray-500 mb-6">
+          Customize the colors used on your public booking page. These colors will be applied to buttons, banners, and other UI elements.
+        </p>
+        
+        <div className="space-y-6">
+          {/* Primary Colors */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Primary Colors</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Primary Color
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={themeSettings.primary_color}
+                    onChange={(e) => handleColorChange('primary_color', e.target.value)}
+                    className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={themeSettings.primary_color}
+                    onChange={(e) => handleColorChange('primary_color', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
+                    placeholder="#7c3aed"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Used for buttons, selected states, and accents</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Secondary Color
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={themeSettings.secondary_color}
+                    onChange={(e) => handleColorChange('secondary_color', e.target.value)}
+                    className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={themeSettings.secondary_color}
+                    onChange={(e) => handleColorChange('secondary_color', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
+                    placeholder="#4f46e5"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Used for gradients and secondary elements</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Background Gradient */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Background Gradient</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gradient Start (From)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={themeSettings.background_gradient_from}
+                    onChange={(e) => handleColorChange('background_gradient_from', e.target.value)}
+                    className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={themeSettings.background_gradient_from}
+                    onChange={(e) => handleColorChange('background_gradient_from', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
+                    placeholder="#faf5ff"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gradient Middle (Via)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={themeSettings.background_gradient_via}
+                    onChange={(e) => handleColorChange('background_gradient_via', e.target.value)}
+                    className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={themeSettings.background_gradient_via}
+                    onChange={(e) => handleColorChange('background_gradient_via', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
+                    placeholder="#ffffff"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Gradient End (To)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={themeSettings.background_gradient_to}
+                    onChange={(e) => handleColorChange('background_gradient_to', e.target.value)}
+                    className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={themeSettings.background_gradient_to}
+                    onChange={(e) => handleColorChange('background_gradient_to', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
+                    placeholder="#eef2ff"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Text Color */}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Text Colors</h4>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Primary Text Color
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={themeSettings.text_color}
+                  onChange={(e) => handleColorChange('text_color', e.target.value)}
+                  className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={themeSettings.text_color}
+                  onChange={(e) => handleColorChange('text_color', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 font-mono text-sm"
+                  placeholder="#1f2937"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Used for headings and main text</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Actions */}
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
+          {mutation.isPending ? 'Saving...' : 'Save Theme Settings'}
+        </button>
+        
+        <button
+          type="button"
+          onClick={resetToDefaults}
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+        >
+          Reset to Defaults
+        </button>
+      </div>
+      
+      {/* Info Box */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-800">
+            <strong>Tip:</strong> Changes will be reflected on your public booking page at{' '}
+            <code className="bg-blue-100 px-1 rounded">
+              {window.location.origin}/book/{studio?.slug || 'your-slug'}
+            </code>
+            . Make sure to test your color choices for good contrast and readability.
+          </div>
+        </div>
+      </div>
     </form>
   )
 }

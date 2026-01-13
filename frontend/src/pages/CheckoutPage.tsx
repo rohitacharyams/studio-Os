@@ -157,7 +157,7 @@ export default function CheckoutPage() {
       // Open Razorpay
       const options = {
         key: orderData.razorpay_key_id,
-        amount: Math.round(orderData.total_amount * 100),
+        amount: orderData.total_amount_in_paise || Math.round(orderData.total_amount * 100),
         currency: orderData.currency,
         name: 'Studio OS',
         description: session ? session.class_name : selectedPack?.name,

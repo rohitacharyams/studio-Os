@@ -79,7 +79,10 @@ def get_studio_razorpay_client(studio):
 def public_create_order():
     """Create a Razorpay order for public/guest checkout.
     No authentication required - uses studio-specific Razorpay keys.
+    Validates payment amount against actual session/class price to prevent frontend manipulation.
     """
+    from app.models import ClassSession, DanceClass
+    
     data = request.get_json()
     
     if not data.get('studio_slug'):
@@ -91,6 +94,32 @@ def public_create_order():
     studio = Studio.query.filter_by(slug=data['studio_slug']).first()
     if not studio:
         return jsonify({'error': 'Studio not found'}), 404
+    
+    # SECURITY: Validate amount against actual session price
+    session_id = data.get('session_id')
+    if session_id:
+        session = ClassSession.query.filter_by(
+            id=session_id,
+            studio_id=studio.id
+        ).first()
+        
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Get the actual price from the dance class
+        if session.class_id:
+            dance_class = DanceClass.query.get(session.class_id)
+            if dance_class and dance_class.price:
+                actual_price = float(dance_class.price)
+                requested_amount = float(data['amount'])
+                
+                # Allow small floating point differences (0.01)
+                if abs(actual_price - requested_amount) > 0.01:
+                    return jsonify({
+                        'error': 'Invalid payment amount',
+                        'message': f'Amount mismatch. Expected ₹{actual_price}, but received ₹{requested_amount}',
+                        'actual_price': actual_price
+                    }), 400
     
     # Get studio's Razorpay client
     client, key_id, key_secret = get_studio_razorpay_client(studio)
@@ -120,7 +149,7 @@ def public_create_order():
                 'studio_slug': studio.slug,
                 'customer_name': data.get('customer_name', ''),
                 'customer_email': data.get('customer_email', ''),
-                'session_id': data.get('session_id', ''),
+                'session_id': str(session_id) if session_id else '',
                 'type': 'public_booking'
             }
         })
@@ -130,6 +159,7 @@ def public_create_order():
             'razorpay_order_id': razorpay_order['id'],
             'razorpay_key_id': key_id,
             'amount': float(amount),
+            'amount_in_paise': int(amount * 100),
             'currency': currency,
             'reference': ref_number,
             'studio': {

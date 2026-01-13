@@ -971,7 +971,7 @@ def public_list_sessions(studio_slug):
         for session in sessions:
             dance_class = DanceClass.query.get(session.class_id) if session.class_id else None
             # Get instructor name if available
-            instructor_name = 'TBA'
+            instructor_name = 'Instructor'
             if dance_class and dance_class.instructor_id:
                 from app.models import User
                 instructor = User.query.get(dance_class.instructor_id)
@@ -984,8 +984,8 @@ def public_list_sessions(studio_slug):
                 'style': dance_class.dance_style if dance_class else '',
                 'level': dance_class.level if dance_class else 'All Levels',
                 'instructor_name': instructor_name,
-                'start_time': session.start_time.strftime('%H:%M') if session.start_time else '18:00',
-                'end_time': session.end_time.strftime('%H:%M') if session.end_time else '19:00',
+                'start_time': datetime.combine(session.date, session.start_time).isoformat() if session.start_time else datetime.combine(session.date, datetime.strptime('18:00', '%H:%M').time()).isoformat(),
+                'end_time': datetime.combine(session.date, session.end_time).isoformat() if session.end_time else datetime.combine(session.date, datetime.strptime('19:00', '%H:%M').time()).isoformat(),
                 'date': session.date.isoformat(),
                 'spots_available': session.available_spots if hasattr(session, 'available_spots') else (session.max_capacity - (session.booked_count or 0)),
                 'max_students': session.max_capacity,
@@ -1007,7 +1007,7 @@ def public_list_sessions(studio_slug):
     for schedule in schedules:
         dance_class = schedule.dance_class
         # Get instructor name if available
-        instructor_name = 'TBA'
+        instructor_name = 'Instructor'
         if dance_class.instructor_id:
             from app.models import User
             instructor = User.query.get(dance_class.instructor_id)
@@ -1021,8 +1021,8 @@ def public_list_sessions(studio_slug):
             'style': dance_class.dance_style,
             'level': dance_class.level,
             'instructor_name': instructor_name,
-            'start_time': schedule.start_time.strftime('%H:%M') if schedule.start_time else '18:00',
-            'end_time': schedule.end_time.strftime('%H:%M') if schedule.end_time else '19:00',
+            'start_time': datetime.combine(schedule.specific_date or datetime.utcnow().date(), schedule.start_time).isoformat() if schedule.start_time else datetime.combine(schedule.specific_date or datetime.utcnow().date(), datetime.strptime('18:00', '%H:%M').time()).isoformat(),
+            'end_time': datetime.combine(schedule.specific_date or datetime.utcnow().date(), schedule.end_time).isoformat() if schedule.end_time else datetime.combine(schedule.specific_date or datetime.utcnow().date(), datetime.strptime('19:00', '%H:%M').time()).isoformat(),
             'date': schedule.specific_date.isoformat() if schedule.specific_date else datetime.utcnow().date().isoformat(),
             'spots_available': dance_class.max_capacity - (schedule.current_enrollment or 0),
             'max_students': dance_class.max_capacity,

@@ -120,14 +120,19 @@ export default function PublicBookingPage() {
           // Create a session for each day this week
           weekDays.forEach((day, dayIdx) => {
             if (dayIdx % 2 === idx % 2) { // Alternate days for different classes
+              const sessionDate = new Date(day);
+              sessionDate.setHours(18, 0, 0, 0);
+              const sessionEndTime = new Date(sessionDate);
+              sessionEndTime.setHours(19, 0, 0, 0);
+              
               demoSessions.push({
                 id: parseInt(`${idx}${dayIdx}`),
                 class_name: cls.name,
                 style: cls.dance_style,
                 level: cls.level,
-                instructor_name: 'Instructor',
-                start_time: '18:00',
-                end_time: '19:00',
+                instructor_name: 'TBA',
+                start_time: sessionDate.toISOString(),
+                end_time: sessionEndTime.toISOString(),
                 date: day.toISOString().split('T')[0],
                 spots_available: cls.max_capacity - Math.floor(Math.random() * 5),
                 max_students: cls.max_capacity,
@@ -218,11 +223,20 @@ export default function PublicBookingPage() {
   };
 
   const formatTime = (isoString: string) => {
-    return new Date(isoString).toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) {
+        // If it's just a time string like "18:00", return it as is
+        return isoString;
+      }
+      return date.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (e) {
+      return isoString;
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -272,16 +286,16 @@ export default function PublicBookingPage() {
         customer_email: formData.email
       });
 
-      const { order_id, amount, currency, razorpay_key_id } = orderResponse.data;
+      const { razorpay_order_id, amount, amount_in_paise, currency, razorpay_key_id } = orderResponse.data;
 
       // Open Razorpay checkout
       const options = {
         key: razorpay_key_id || 'rzp_test_demo',
-        amount: amount,
+        amount: amount_in_paise || Math.round(amount * 100), // Use paise amount from backend
         currency: currency,
         name: studio?.name || 'Dance Studio',
         description: `Booking: ${selectedSession.class_name}`,
-        order_id: order_id,
+        order_id: razorpay_order_id,
         handler: async (response: any) => {
           // Verify payment
           try {
@@ -314,7 +328,7 @@ export default function PublicBookingPage() {
         setBookingId(Math.floor(Math.random() * 10000));
         setBookingStep('success');
       } else {
-        setError('Failed to process payment');
+        setError(err.response?.data?.message || err.response?.data?.error || 'Failed to process payment');
       }
     } finally {
       setProcessing(false);

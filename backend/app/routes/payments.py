@@ -548,6 +548,15 @@ def create_order():
         'tax_amount': float(tax_amount),
         'wallet_deduction': float(wallet_deduction),
         'total_amount': float(total_amount),
+        'total_amount_in_paise': int(total_amount * 100),
+        'currency': payment.currency,
+        'contact': {
+            'id': contact.id,
+            'name': contact.name,
+            'email': contact.email,
+            'phone': contact.phone
+        }
+    })
         'currency': payment.currency,
         'contact': {
             'name': contact.name,

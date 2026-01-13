@@ -526,6 +526,12 @@ def get_payment_settings():
     # Payment settings stored in a JSON field
     payment_settings = getattr(studio, 'payment_settings', None) or {}
     
+    # Add the actual Razorpay keys from studio columns if not in payment_settings
+    if studio.razorpay_key_id and 'razorpay_key_id' not in payment_settings:
+        payment_settings['razorpay_key_id'] = studio.razorpay_key_id
+    if studio.razorpay_key_secret and 'razorpay_key_secret' not in payment_settings:
+        payment_settings['razorpay_key_secret'] = studio.razorpay_key_secret
+    
     return jsonify({'settings': payment_settings})
 
 
@@ -564,6 +570,12 @@ def update_payment_settings():
     }
     
     studio.payment_settings = payment_data
+    
+    # Also save Razorpay keys to studio columns for payment processing
+    if data.get('razorpay_key_id'):
+        studio.razorpay_key_id = data['razorpay_key_id']
+    if data.get('razorpay_key_secret'):
+        studio.razorpay_key_secret = data['razorpay_key_secret']
     
     try:
         db.session.commit()

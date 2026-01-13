@@ -557,13 +557,6 @@ def create_order():
             'phone': contact.phone
         }
     })
-        'currency': payment.currency,
-        'contact': {
-            'name': contact.name,
-            'email': contact.email,
-            'phone': contact.phone
-        }
-    })
 
 
 @payments_bp.route('/verify', methods=['POST'])

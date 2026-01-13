@@ -32,6 +32,14 @@ Studio Operations OS helps dance studio owners manage customer communications, l
 - **Suggestions**: AI suggests optimal times for new classes
 - **Instructor management**: Track specialties and availability
 
+### 🎨 Studio Branding & Customization
+- **Theme customization**: Customize colors for your public booking page
+- **Media gallery**: Upload photos and videos to showcase your studio
+- **Testimonials**: Display student reviews and ratings
+- **Amenities**: Highlight studio features and amenities
+- **Social links**: Connect Instagram, YouTube, and Facebook profiles
+- **About section**: Share your studio's story and mission
+
 ### 📊 Analytics Dashboard
 - **Message metrics**: Messages received/sent per day
 - **Lead conversion**: Track conversion rates
@@ -262,6 +270,51 @@ POST /api/auth/register
 | `/api/contacts` | POST | Create new contact |
 | `/api/contacts/{id}` | PUT | Update contact details |
 | `/api/contacts/{id}/status` | PUT | Update lead status |
+
+### Studio Management
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/studio` | GET | Get studio details |
+| `/api/studio` | PUT | Update studio settings (including media fields) |
+| `/api/studio/public/<slug>` | GET | Get public studio info (for booking page) |
+| `/api/studio/settings/theme` | GET | Get theme settings |
+| `/api/studio/settings/theme` | PUT | Update theme settings |
+
+**Update Studio with Media Example:**
+```json
+PUT /api/studio
+{
+    "name": "Rhythm Dance Studio",
+    "photos": ["https://example.com/photo1.jpg", "https://example.com/photo2.jpg"],
+    "videos": ["https://youtube.com/watch?v=xxx"],
+    "testimonials": [
+        {"name": "Sarah", "text": "Amazing classes!", "rating": 5}
+    ],
+    "amenities": ["Air Conditioning", "Parking", "Changing Rooms"],
+    "social_links": {
+        "instagram": "https://instagram.com/rhythmdance",
+        "youtube": "https://youtube.com/@rhythmdance",
+        "facebook": "https://facebook.com/rhythmdance"
+    },
+    "about": "Welcome to Rhythm Dance Studio..."
+}
+```
+
+**Update Theme Settings Example:**
+```json
+PUT /api/studio/settings/theme
+{
+    "theme_settings": {
+        "primary_color": "#7c3aed",
+        "secondary_color": "#4f46e5",
+        "background_gradient_from": "#faf5ff",
+        "background_gradient_via": "#ffffff",
+        "background_gradient_to": "#eef2ff",
+        "text_color": "#1f2937"
+    }
+}
+```
 
 ### AI & LLM Management
 
@@ -564,6 +617,16 @@ curl http://localhost:5001/api/conversations \
 - Change frontend port: `npm run dev -- --port 3000`
 
 ---
+
+## ✨ Recent Updates
+
+### Theme Customization & Media Management (January 2026)
+- ✅ **Customizable public booking page**: Studios can now customize colors, gradients, and branding for their public booking page
+- ✅ **Media gallery**: Upload and manage studio photos and videos
+- ✅ **Testimonials system**: Display student reviews with ratings
+- ✅ **Amenities showcase**: Highlight studio features and amenities
+- ✅ **Social media integration**: Add Instagram, YouTube, and Facebook links
+- ✅ **About section**: Share studio description and story
 
 ## 📈 Roadmap
 

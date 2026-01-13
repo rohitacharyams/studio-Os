@@ -179,8 +179,11 @@ Studio OS/
 
 ### Studio (`/api/studio`)
 - `GET /api/studio` - Get studio details
-- `PUT /api/studio` - Update studio settings
+- `PUT /api/studio` - Update studio settings (including media fields: photos, videos, testimonials, amenities, social_links, about)
 - `POST /api/studio/onboarding` - Complete onboarding
+- `GET /api/studio/public/<slug>` - Get public studio info (for booking page, includes theme_settings)
+- `GET /api/studio/settings/theme` - Get theme settings
+- `PUT /api/studio/settings/theme` - Update theme settings
 
 ### Scheduling (`/api/scheduling`)
 - `GET /api/scheduling/classes` - List classes
@@ -267,6 +270,32 @@ git push origin main
 5. **Edit Class UI** - Added edit functionality for sessions
 6. **Mobile Responsive** - Made CalendarPage, PublicBookingPage, MyBookingsPage responsive
 
+## ✨ NEW FEATURES (January 2026)
+
+### Theme Customization & Media Management
+1. **Theme Settings** - Studios can customize colors, gradients, and branding for their public booking page
+   - Primary/secondary colors
+   - Background gradients
+   - Text colors
+   - Live preview in settings
+   - Applied dynamically to `/book/<slug>` page
+
+2. **Media Gallery** - Upload and manage studio content
+   - Photo gallery (image URLs)
+   - Video gallery (YouTube/Vimeo URLs)
+   - Testimonials with ratings
+   - Studio amenities list
+   - Social media links (Instagram, YouTube, Facebook)
+
+3. **Database Migrations**
+   - `003_add_theme_settings.py` - Adds `theme_settings` JSON column
+   - `004_add_media_fields.py` - Adds photos, videos, testimonials, amenities, social_links, about fields
+
+4. **Settings Page Enhancements**
+   - New "Media" tab for managing photos, videos, testimonials, amenities
+   - New "Theme" tab for customizing booking page colors
+   - Improved UI with preview functionality
+
 ---
 
 ## ✨ FEATURES IMPLEMENTED
@@ -285,6 +314,10 @@ git push origin main
 - ✅ WhatsApp integration
 - ✅ Email templates
 - ✅ Knowledge base for AI
+- ✅ **Theme customization** - Customize colors for public booking page
+- ✅ **Media management** - Photos, videos, testimonials, amenities
+- ✅ **Social media links** - Instagram, YouTube, Facebook integration
+- ✅ **About section** - Studio description and branding
 
 ### For Customers
 - ✅ Public booking page (shareable link)

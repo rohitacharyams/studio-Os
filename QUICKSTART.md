@@ -22,6 +22,11 @@ npm run dev
 - Email: priya@rhythmdance.com
 - Password: password123
 
+### New Features (January 2026)
+- **Theme Customization**: Customize colors for your public booking page in Settings → Theme
+- **Media Management**: Add photos, videos, testimonials, and amenities in Settings → Media
+- **Social Links**: Connect Instagram, YouTube, and Facebook in Settings → Media
+
 ---
 
 ## Production Deployment

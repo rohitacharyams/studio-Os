@@ -620,6 +620,16 @@ curl http://localhost:5001/api/conversations \
 
 ## ✨ Recent Updates
 
+### Public Booking Page Redesign (January 2026)
+- ✅ **Modern hero section**: Full-screen hero image with studio branding and dynamic content
+- ✅ **Enhanced navigation**: Fixed glass morphism navigation with phone, WhatsApp, and Book Now buttons
+- ✅ **Tabbed booking interface**: Separate tabs for "Book a Class" and "Rent the Studio" (rental with dummy data)
+- ✅ **Gallery section**: Beautiful grid layout showcasing studio photos with hover effects
+- ✅ **Testimonials display**: 3-column grid showing student reviews and ratings
+- ✅ **Map & contact integration**: Google Maps embed with address, business hours, and WhatsApp support card
+- ✅ **Dynamic studio data**: Hero shows studio name, location badge displays city, all media fields integrated
+- ✅ **WhatsApp quick contact**: Pre-filled message button in navigation for instant customer queries
+
 ### Theme Customization & Media Management (January 2026)
 - ✅ **Customizable public booking page**: Studios can now customize colors, gradients, and branding for their public booking page
 - ✅ **Media gallery**: Upload and manage studio photos and videos
@@ -627,6 +637,7 @@ curl http://localhost:5001/api/conversations \
 - ✅ **Amenities showcase**: Highlight studio features and amenities
 - ✅ **Social media integration**: Add Instagram, YouTube, and Facebook links
 - ✅ **About section**: Share studio description and story
+- ✅ **Public API enhancement**: `/studio/public/<slug>` endpoint now returns all media fields (photos, videos, testimonials, amenities, about, social_links)
 
 ## 📈 Roadmap
 

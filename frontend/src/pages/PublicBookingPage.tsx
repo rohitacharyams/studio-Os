@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
-  Calendar, Clock, MapPin, Users, ChevronLeft, ChevronRight, 
-  Check, Loader2, Phone, User, Mail, CreditCard, Wallet
+  Calendar, Clock, MapPin, ChevronLeft, ChevronRight, 
+  Check, Loader2, Phone, User, Mail, CreditCard, Wallet, MessageCircle
 } from 'lucide-react';
 import api from '../lib/api';
 
@@ -25,8 +25,21 @@ interface Studio {
   name: string;
   logo?: string;
   address?: string;
+  city?: string;
   phone?: string;
   description?: string;
+  about?: string;
+  business_hours_open?: string;
+  business_hours_close?: string;
+  photos?: string[];
+  videos?: string[];
+  testimonials?: Array<{name: string, text: string, rating: number}>;
+  amenities?: string[];
+  social_links?: {
+    instagram?: string;
+    youtube?: string;
+    facebook?: string;
+  };
   theme_settings?: {
     primary_color?: string;
     secondary_color?: string;
@@ -58,6 +71,7 @@ export default function PublicBookingPage() {
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const bookingEngineRef = useRef<HTMLDivElement>(null);
   
   // Default theme colors
   const defaultTheme = {
@@ -81,6 +95,7 @@ export default function PublicBookingPage() {
   });
   
   // Booking flow state
+  const [activeTab, setActiveTab] = useState<'classes' | 'studio'>('classes');
   const [selectedSession, setSelectedSession] = useState<ClassSession | null>(null);
   const [bookingStep, setBookingStep] = useState<'select' | 'details' | 'payment' | 'success'>('select');
   const [formData, setFormData] = useState<BookingFormData>({
@@ -122,10 +137,19 @@ export default function PublicBookingPage() {
       
       setStudio({
         name: studioData.name,
-        address: studioData.address ? `${studioData.address}${studioData.city ? ', ' + studioData.city : ''}` : undefined,
+        address: studioData.address,
+        city: studioData.city,
         phone: studioData.phone,
         logo: studioData.logo_url,
-        description: `Welcome to ${studioData.name}! Book your favorite classes online.`,
+        description: studioData.about || `Welcome to ${studioData.name}! Book your favorite classes online.`,
+        about: studioData.about,
+        business_hours_open: studioData.business_hours_open,
+        business_hours_close: studioData.business_hours_close,
+        photos: studioData.photos || [],
+        videos: studioData.videos || [],
+        testimonials: studioData.testimonials || [],
+        amenities: studioData.amenities || [],
+        social_links: studioData.social_links || {},
         theme_settings: studioData.theme_settings || {}
       });
       
@@ -177,8 +201,12 @@ export default function PublicBookingPage() {
       setStudio({
         name: studioSlug?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'Demo Studio',
         address: 'Studio Address',
+        city: 'City',
         phone: '+91 98765 43210',
-        description: 'Welcome to our dance studio! Book your favorite classes online.'
+        description: 'Welcome to our dance studio! Book your favorite classes online.',
+        photos: [],
+        testimonials: [],
+        amenities: []
       });
       setSessions(generateDemoSessions());
     } finally {
@@ -253,7 +281,6 @@ export default function PublicBookingPage() {
     try {
       const date = new Date(isoString);
       if (isNaN(date.getTime())) {
-        // If it's just a time string like "18:00", return it as is
         return isoString;
       }
       return date.toLocaleTimeString('en-IN', {
@@ -266,13 +293,6 @@ export default function PublicBookingPage() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-IN', { 
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short'
-    });
-  };
 
   const isToday = (date: Date) => {
     const today = new Date();
@@ -318,7 +338,7 @@ export default function PublicBookingPage() {
       // Open Razorpay checkout
       const options = {
         key: razorpay_key_id || 'rzp_test_demo',
-        amount: amount_in_paise || Math.round(amount * 100), // Use paise amount from backend
+        amount: amount_in_paise || Math.round(amount * 100),
         currency: currency,
         name: studio?.name || 'Dance Studio',
         description: `Booking: ${selectedSession.class_name}`,
@@ -404,6 +424,24 @@ export default function PublicBookingPage() {
     return colors[style] || 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
+  const scrollToBooking = () => {
+    bookingEngineRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const getHeroImage = () => {
+    if (studio?.photos && studio.photos.length > 0) {
+      return studio.photos[0];
+    }
+    return 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1920&q=80';
+  };
+
+  const getMapUrl = () => {
+    const address = studio?.address ? `${studio.address}${studio.city ? ', ' + studio.city : ''}` : '';
+    if (!address) return '';
+    const encoded = encodeURIComponent(address);
+    return `https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15555.03478546124!2d77.62539095!3d12.9141416!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTLCsDU0JzUwLjkiTiA3N8KwMzcnMzEuNCJF!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin&q=${encoded}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -416,220 +454,339 @@ export default function PublicBookingPage() {
   }
 
   return (
+    <div className="min-h-screen bg-[#fafafa] antialiased scroll-smooth">
+      {/* Fixed Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
     <div 
-      className="min-h-screen"
+            className="px-6 py-3 rounded-2xl flex items-center gap-3 backdrop-blur-xl"
       style={{
-        background: `linear-gradient(to bottom right, ${theme.background_gradient_from}, ${theme.background_gradient_via}, ${theme.background_gradient_to})`
+              background: 'rgba(255, 255, 255, 0.7)',
+              border: '1px solid rgba(255, 255, 255, 0.3)'
       }}
     >
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-4">
               <div 
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-lg"
                 style={{
                   background: `linear-gradient(to bottom right, ${theme.primary_color}, ${theme.secondary_color})`
                 }}
               >
                 {studio?.name?.charAt(0) || 'S'}
               </div>
-              <div>
-                <h1 className="text-base sm:text-xl font-bold text-gray-900">{studio?.name}</h1>
-                {studio?.address && (
-                  <p className="text-xs sm:text-sm text-gray-500 flex items-center gap-1 truncate max-w-[200px] sm:max-w-none">
-                    <MapPin className="w-3 h-3 flex-shrink-0" /> {studio.address}
-                  </p>
-                )}
+            <span className="font-bold tracking-tight text-gray-900 hidden sm:block">
+              {studio?.name || 'Studio'}
+            </span>
               </div>
-            </div>
+          <div className="flex items-center gap-3">
             {studio?.phone && (
-              <a 
-                href={`tel:${studio.phone}`} 
-                className="flex items-center gap-1 sm:gap-2 text-gray-600 text-sm"
-                style={{ 
-                  '--hover-color': theme.primary_color 
-                } as React.CSSProperties}
-                onMouseEnter={(e) => e.currentTarget.style.color = theme.primary_color}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
-              >
-                <Phone className="w-4 h-4" />
-                <span className="hidden sm:inline">{studio.phone}</span>
-              </a>
+              <>
+                <a 
+                  href={`tel:${studio.phone}`} 
+                  className="p-3 rounded-2xl hover:bg-white transition-colors backdrop-blur-xl"
+                  style={{ 
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  <Phone className="w-5 h-5 text-gray-700" />
+                </a>
+                <a 
+                  href={`https://wa.me/${studio.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hey I have query')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-3 rounded-2xl hover:bg-white transition-colors backdrop-blur-xl"
+                  style={{ 
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  <MessageCircle className="w-5 h-5 text-gray-700" />
+                </a>
+              </>
             )}
+            <button 
+              onClick={scrollToBooking}
+              className="bg-black text-white px-6 py-3 rounded-2xl font-semibold hover:bg-gray-800 transition-all shadow-lg"
+            >
+              Book Now
+            </button>
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        {bookingStep === 'select' && (
-          <>
-            {/* Welcome banner */}
-            <div 
-              className="rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white mb-4 sm:mb-8"
-              style={{
-                background: `linear-gradient(to right, ${theme.primary_color}, ${theme.secondary_color})`
-              }}
+      {/* Hero Section */}
+      <section className="relative h-[90vh] min-h-[600px] w-full overflow-hidden">
+        <img 
+          src={getHeroImage()} 
+          className="absolute inset-0 w-full h-full object-cover scale-105" 
+          alt="Dance Studio"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/70"></div>
+        <div className="absolute inset-0 flex items-end pb-20 px-6">
+          <div className="max-w-7xl mx-auto w-full grid md:grid-cols-2 gap-12 items-end">
+            <div className="text-white">
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full mb-6 border border-white/20">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span className="text-sm font-medium uppercase tracking-widest">
+                  Open Today{studio?.city ? ` • ${studio.city}` : ''}
+                </span>
+              </div>
+              <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter mb-6 leading-[0.9]">
+                {studio?.name || 'Dance Studio'}
+              </h1>
+              <p className="text-lg text-white/80 max-w-md leading-relaxed mb-8">
+                {studio?.about || studio?.description || 'The world\'s premier dance studio. Train with the industry\'s best or rent our space for your creative journey.'}
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-3">
+                    <div className="w-10 h-10 rounded-full border-2 border-black bg-gradient-to-br from-purple-400 to-pink-400"></div>
+                    <div className="w-10 h-10 rounded-full border-2 border-black bg-gradient-to-br from-blue-400 to-cyan-400"></div>
+                    <div className="w-10 h-10 rounded-full border-2 border-black bg-gradient-to-br from-orange-400 to-red-400"></div>
+                  </div>
+                  <span className="text-sm font-medium text-white/90">Joined by 2k+ Dancers</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Booking Engine */}
+      <section id="booking-engine" ref={bookingEngineRef} className="max-w-7xl mx-auto px-6 -mt-10 relative z-10 pb-24">
+        <div className="bg-white rounded-[32px] shadow-2xl overflow-hidden border border-gray-100">
+          {/* Selector Tabs */}
+          <div className="flex border-b border-gray-100">
+            <button
+              onClick={() => setActiveTab('classes')}
+              className={`flex-1 py-8 text-center transition-all duration-300 border-b-2 ${
+                activeTab === 'classes'
+                  ? 'border-purple-600 bg-purple-50/30'
+                  : 'border-transparent hover:bg-gray-50'
+              }`}
+              style={activeTab === 'classes' ? { borderColor: theme.primary_color, backgroundColor: `${theme.primary_color}15` } : {}}
             >
-              <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Book Your Next Class</h2>
-              <p className="text-sm sm:text-base text-purple-100">Select a class below to reserve your spot</p>
+              <span className={`block text-xs font-bold uppercase tracking-widest mb-1 ${
+                activeTab === 'classes' ? 'text-purple-600' : 'text-gray-400'
+              }`} style={activeTab === 'classes' ? { color: theme.primary_color } : {}}>
+                Schedule
+              </span>
+              <span className="text-xl font-extrabold">Book a Class</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('studio')}
+              className={`flex-1 py-8 text-center transition-all duration-300 border-b-2 ${
+                activeTab === 'studio'
+                  ? 'border-purple-600 bg-purple-50/30'
+                  : 'border-transparent hover:bg-gray-50'
+              }`}
+              style={activeTab === 'studio' ? { borderColor: theme.primary_color, backgroundColor: `${theme.primary_color}15` } : {}}
+            >
+              <span className={`block text-xs font-bold uppercase tracking-widest mb-1 ${
+                activeTab === 'studio' ? 'text-purple-600' : 'text-gray-400'
+              }`} style={activeTab === 'studio' ? { color: theme.primary_color } : {}}>
+                Rental
+              </span>
+              <span className="text-xl font-extrabold">Rent the Studio</span>
+            </button>
             </div>
 
-            {/* Date navigation */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-              <div className="flex items-center justify-between mb-4">
+          {/* Classes Content */}
+          {activeTab === 'classes' && bookingStep === 'select' && (
+            <div className="p-8">
+              {/* Date Picker */}
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-2xl font-bold">Select Date</h3>
+                  <p className="text-gray-500">{weekStart.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p>
+                </div>
+                <div className="flex gap-2">
                 <button
                   onClick={() => navigateWeek('prev')}
                   disabled={weekStart <= new Date(new Date().setHours(0, 0, 0, 0))}
-                  className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30"
+                    className="p-3 rounded-xl border border-gray-200 hover:bg-gray-50 disabled:opacity-30"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <h3 className="font-semibold text-gray-900">
-                  {weekStart.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
-                </h3>
                 <button
                   onClick={() => navigateWeek('next')}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                    className="p-3 rounded-xl border border-gray-200 hover:bg-gray-50"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
+                </div>
               </div>
 
-              <div className="flex gap-2 overflow-x-auto pb-2">
+              <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 {weekDays.map((day) => (
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelectedDate(day)}
                     disabled={isPast(day)}
-                    className={`flex-shrink-0 w-20 py-3 rounded-xl text-center transition-all ${
+                    className={`min-w-[90px] h-[120px] rounded-2xl flex flex-col items-center justify-center transition-all ${
                       selectedDate.toDateString() === day.toDateString()
-                        ? 'text-white shadow-lg'
+                        ? 'text-white shadow-lg transform -translate-y-1'
                         : isPast(day)
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-gray-50 text-gray-700'
+                          ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                     }`}
                     style={
                       selectedDate.toDateString() === day.toDateString()
-                        ? { backgroundColor: theme.primary_color }
-                        : !isPast(day)
-                          ? { 
-                              '--hover-bg': `${theme.primary_color}15` 
-                            } as React.CSSProperties
-                          : undefined
+                        ? { 
+                            backgroundColor: theme.primary_color,
+                            boxShadow: `0 10px 25px -5px ${theme.primary_color}66`
+                          }
+                        : {}
                     }
-                    onMouseEnter={(e) => {
-                      if (!isPast(day) && selectedDate.toDateString() !== day.toDateString()) {
-                        e.currentTarget.style.backgroundColor = `${theme.primary_color}15`;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isPast(day) && selectedDate.toDateString() !== day.toDateString()) {
-                        e.currentTarget.style.backgroundColor = '#f9fafb';
-                      }
-                    }}
                   >
-                    <div className="text-xs uppercase font-medium">
+                    <span className="text-xs font-bold opacity-80 uppercase">
                       {day.toLocaleDateString('en-IN', { weekday: 'short' })}
-                    </div>
-                    <div className="text-2xl font-bold">{day.getDate()}</div>
+                    </span>
+                    <span className="text-3xl font-black my-1">{day.getDate()}</span>
                     {isToday(day) && (
-                      <div className="text-xs">Today</div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Today</span>
                     )}
                   </button>
                 ))}
-              </div>
             </div>
 
-            {/* Sessions for selected date */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900 text-lg">
-                Classes on {formatDate(selectedDate)}
-              </h3>
-
+              {/* Class List */}
+              <div className="mt-8 space-y-4">
               {getSessionsForDate(selectedDate).length === 0 ? (
-                <div className="bg-white rounded-xl p-8 text-center">
+                  <div className="bg-white rounded-xl p-8 text-center border border-gray-100">
                   <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">No classes scheduled for this day</p>
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {getSessionsForDate(selectedDate).map((session) => (
+                  getSessionsForDate(selectedDate).map((session) => (
                     <div
                       key={session.id}
-                      className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                      className="group bg-white border border-gray-100 p-6 rounded-[24px] hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/5 transition-all flex flex-col md:flex-row items-center justify-between gap-6"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStyleColor(session.style)}`}>
-                          {session.style}
+                      <div className="flex items-center gap-6 w-full">
+                        <div className="w-20 h-20 rounded-2xl bg-purple-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                          <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl">
+                            {session.instructor_name.charAt(0)}
+                          </div>
+                        </div>
+                        <div>
+                          <span className={`px-3 py-1 ${getStyleColor(session.style)} text-[10px] font-bold uppercase tracking-wider rounded-full`}>
+                            {session.style} • {session.level}
                         </span>
-                        <span 
-                          className="text-lg font-bold"
-                          style={{ color: theme.primary_color }}
+                          <h4 className="text-xl font-extrabold mt-1">{session.class_name}</h4>
+                          <p className="text-gray-500 flex items-center gap-2 mt-1">
+                            <Clock className="w-4 h-4" />
+                            {formatTime(session.start_time)} — {formatTime(session.end_time)} ({Math.round((new Date(session.end_time).getTime() - new Date(session.start_time).getTime()) / 60000)}m)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
+                        <div className="text-right">
+                          {session.spots_available <= 2 && session.spots_available > 0 && (
+                            <span className="block text-xs font-bold text-red-500 uppercase tracking-widest mb-1">
+                              Only {session.spots_available} Spots Left!
+                        </span>
+                          )}
+                          <span className="text-2xl font-black">₹{session.drop_in_price}</span>
+                      </div>
+                        <button
+                          onClick={() => handleSelectSession(session)}
+                          disabled={session.spots_available === 0}
+                          className="bg-black text-white px-8 py-4 rounded-2xl font-bold hover:bg-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ backgroundColor: session.spots_available === 0 ? '#9ca3af' : undefined }}
                         >
-                          ₹{session.drop_in_price}
-                        </span>
+                          {session.spots_available === 0 ? 'Class Full' : 'Book Spot'}
+                        </button>
                       </div>
-
-                      <h4 className="font-semibold text-gray-900 mb-1">{session.class_name}</h4>
-                      <p className="text-sm text-gray-500 mb-3">with {session.instructor_name}</p>
-
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          {formatTime(session.start_time)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
-                          {session.spots_available} spots
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={() => handleSelectSession(session)}
-                        disabled={session.spots_available === 0}
-                        className={`w-full py-2.5 rounded-lg font-medium transition-colors ${
-                          session.spots_available > 0
-                            ? 'text-white'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                        style={
-                          session.spots_available > 0
-                            ? { 
-                                backgroundColor: theme.primary_color,
-                              }
-                            : undefined
-                        }
-                        onMouseEnter={(e) => {
-                          if (session.spots_available > 0) {
-                            e.currentTarget.style.opacity = '0.9';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (session.spots_available > 0) {
-                            e.currentTarget.style.opacity = '1';
-                          }
-                        }}
-                      >
-                        {session.spots_available > 0 ? 'Book Now' : 'Class Full'}
-                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </>
+          )}
+
+          {/* Studio Rental Content */}
+          {activeTab === 'studio' && (
+            <div className="p-8">
+              <div className="grid md:grid-cols-2 gap-12">
+                <div>
+                  <h3 className="text-3xl font-black mb-4 leading-tight">Your Creative Space. <br/>Reserved.</h3>
+                  <p className="text-gray-500 mb-8 leading-relaxed">
+                    Professional sprung floors, wall-to-wall mirrors, and high-fidelity sound systems. Perfect for rehearsals, auditions, or private practice.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-8">
+                    <div className="p-4 bg-gray-50 rounded-2xl">
+                      <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Standard Rate</span>
+                      <span className="text-xl font-black">₹750/hr</span>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-2xl">
+                      <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Bulk Booking</span>
+                      <span className="text-xl font-black">10% Off</span>
+                    </div>
+                      </div>
+
+                  <div className="space-y-4">
+                    {(studio?.amenities || [
+                      'Professional Sound System (Bluetooth/Aux)',
+                      'Full Length Mirror Wall',
+                      'Changing Rooms & Water Station'
+                    ]).slice(0, 3).map((amenity, idx) => (
+                      <div key={idx} className="flex items-center gap-3 font-semibold">
+                        <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs">✓</div>
+                        {amenity}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-8 rounded-[32px] border border-gray-100">
+                  <h4 className="text-xl font-bold mb-6">Check Availability</h4>
+                  <div className="space-y-4 mb-8">
+                    <div className="p-4 bg-white rounded-2xl border border-gray-200 flex items-center justify-between">
+                      <span className="font-bold">Select Date</span>
+                      <span className="font-bold" style={{ color: theme.primary_color }}>
+                        {selectedDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                    <div className="p-4 bg-white rounded-2xl border border-gray-200">
+                      <span className="block text-xs font-bold text-gray-400 uppercase mb-3">Available Slots</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {['10am - 11am', '12pm - 1pm', '2pm - 3pm', '5pm - 6pm'].map((slot, idx) => (
+                      <button
+                            key={idx}
+                            className={`py-2 border rounded-xl hover:border-purple-600 hover:text-purple-600 transition-all font-bold ${
+                              idx === 2 ? 'bg-gray-200 text-gray-400 cursor-not-allowed line-through' : ''
+                            }`}
+                            disabled={idx === 2}
+                            style={idx !== 2 ? { '--hover-border': theme.primary_color } as React.CSSProperties : {}}
+                          >
+                            {slot}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    className="w-full text-white py-5 rounded-2xl font-black text-lg hover:opacity-90 transition-all shadow-xl"
+                    style={{
+                                backgroundColor: theme.primary_color,
+                      boxShadow: `0 20px 25px -5px ${theme.primary_color}33`
+                    }}
+                  >
+                    Confirm Booking
+                      </button>
+                  <p className="text-center text-xs text-gray-400 mt-4">Immediate confirmation via WhatsApp</p>
+                    </div>
+                </div>
+            </div>
         )}
 
         {/* Booking Details Step */}
         {bookingStep === 'details' && selectedSession && (
-          <div className="max-w-lg mx-auto">
+            <div className="p-8 max-w-lg mx-auto">
             <button
               onClick={resetBooking}
-              className="flex items-center gap-2 text-gray-600 mb-6"
-              onMouseEnter={(e) => e.currentTarget.style.color = theme.primary_color}
-              onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
+                className="flex items-center gap-2 text-gray-600 mb-6 hover:text-purple-600 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" /> Back to classes
             </button>
@@ -642,7 +799,7 @@ export default function PublicBookingPage() {
                 }}
               >
                 <h2 className="text-xl font-bold mb-1">{selectedSession.class_name}</h2>
-                <p className="text-purple-100">with {selectedSession.instructor_name}</p>
+                  <p className="text-white/80">with {selectedSession.instructor_name}</p>
                 <div className="flex items-center gap-4 mt-4 text-sm">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
@@ -726,12 +883,10 @@ export default function PublicBookingPage() {
 
         {/* Payment Step */}
         {bookingStep === 'payment' && selectedSession && (
-          <div className="max-w-lg mx-auto">
+            <div className="p-8 max-w-lg mx-auto">
             <button
               onClick={() => setBookingStep('details')}
-              className="flex items-center gap-2 text-gray-600 mb-6"
-              onMouseEnter={(e) => e.currentTarget.style.color = theme.primary_color}
-              onMouseLeave={(e) => e.currentTarget.style.color = '#4b5563'}
+                className="flex items-center gap-2 text-gray-600 mb-6 hover:text-purple-600 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
@@ -836,7 +991,7 @@ export default function PublicBookingPage() {
 
         {/* Success Step */}
         {bookingStep === 'success' && selectedSession && (
-          <div className="max-w-lg mx-auto text-center">
+            <div className="p-8 max-w-lg mx-auto text-center">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-green-600" />
@@ -895,28 +1050,210 @@ export default function PublicBookingPage() {
             </div>
           </div>
         )}
+        </div>
+      </section>
 
-        {error && (
-          <div className="fixed bottom-4 right-4 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg">
-            {error}
+      {/* Gallery Section */}
+      {studio?.photos && studio.photos.length > 0 && (
+        <section className="max-w-7xl mx-auto px-6 pb-24">
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <h2 className="text-4xl font-black tracking-tight mb-2">The Vibe.</h2>
+              <p className="text-gray-500">Take a look inside our creative sanctuary.</p>
           </div>
-        )}
-      </main>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 h-[600px]">
+            {studio.photos.slice(0, 5).map((photo, idx) => {
+              if (idx === 0) {
+                return (
+                  <div key={idx} className="col-span-2 row-span-2 rounded-[32px] overflow-hidden group relative">
+                    <img 
+                      src={photo} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                      alt={`Studio ${idx + 1}`}
+                    />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all"></div>
+                  </div>
+                );
+              }
+              if (idx === 4) {
+                return (
+                  <div key={idx} className="col-span-2 h-[280px] rounded-[32px] overflow-hidden group relative">
+                    <img 
+                      src={photo} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                      alt={`Studio ${idx + 1}`}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div key={idx} className="rounded-[32px] overflow-hidden group relative">
+                  <img 
+                    src={photo} 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                    alt={`Studio ${idx + 1}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Testimonials Section */}
+      {studio?.testimonials && studio.testimonials.length > 0 && (
+        <section className="bg-gray-100 py-24 px-6 overflow-hidden">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-4xl font-black text-center mb-16 italic">"Where the industry trains."</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              {studio.testimonials.slice(0, 3).map((testimonial, idx) => (
+                <div key={idx} className="bg-white p-10 rounded-[32px] relative">
+                  <div className="text-purple-600 text-6xl font-serif absolute top-4 left-6 opacity-20" style={{ color: theme.primary_color }}>"</div>
+                  <p className="text-lg font-medium leading-relaxed relative z-10 mb-8">{testimonial.text}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400"></div>
+                    <div>
+                      <p className="font-bold">{testimonial.name}</p>
+                      <div className="flex gap-1 mt-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} className="text-yellow-400">★</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Map & Contact Section */}
+      <section className="max-w-7xl mx-auto px-6 py-24 grid md:grid-cols-12 gap-12 items-center">
+        <div className="md:col-span-5">
+          <h2 className="text-5xl font-black mb-8 leading-[0.9]">
+            Find Us In <br/>The Heart Of <br/>
+            <span className="underline" style={{ color: theme.primary_color }}>
+              {studio?.city || 'Your City'}.
+            </span>
+          </h2>
+          <div className="space-y-8">
+            {studio?.address && (
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-2">Location</h4>
+                <p className="text-xl font-bold">
+                  {studio.address}{studio.city ? `, ${studio.city}` : ''}
+                </p>
+              </div>
+            )}
+            {studio?.business_hours_open && studio?.business_hours_close && (
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-2">Hours</h4>
+                <p className="text-xl font-bold">
+                  Mon — Sun: {studio.business_hours_open} — {studio.business_hours_close}
+                </p>
+              </div>
+            )}
+            <div className="flex gap-4 pt-4">
+              <a 
+                href={getMapUrl() ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${studio?.address || ''} ${studio?.city || ''}`)}` : '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-black text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 hover:bg-gray-800 transition-colors"
+              >
+                <MapPin className="w-5 h-5" />
+                Directions
+              </a>
+            </div>
+          </div>
+        </div>
+        <div className="md:col-span-7 h-[500px] bg-gray-200 rounded-[40px] overflow-hidden shadow-2xl relative">
+          {getMapUrl() ? (
+            <iframe 
+              src={getMapUrl()}
+              width="100%" 
+              height="100%" 
+              style={{ border: 0, filter: 'grayscale(1) contrast(1.2)' }} 
+              allowFullScreen 
+              loading="lazy"
+            ></iframe>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400">
+              Map unavailable
+            </div>
+          )}
+          {studio?.phone && (
+            <div 
+              className="absolute bottom-6 right-6 p-6 rounded-[24px] max-w-xs backdrop-blur-xl"
+              style={{
+                background: 'rgba(255, 255, 255, 0.7)',
+                border: '1px solid rgba(255, 255, 255, 0.3)'
+              }}
+            >
+              <p className="font-bold text-sm mb-2">Instant Support</p>
+              <p className="text-xs text-gray-500 mb-4">Chat with our studio manager for group discounts or event rentals.</p>
+              <a 
+                href={`https://wa.me/${studio.phone.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-green-500 text-white w-full py-3 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-green-600 transition-all"
+              >
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp Us
+              </a>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="bg-white border-t mt-12 py-6">
-        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
-          <p>
-            Powered by{' '}
-            <span 
-              className="font-semibold"
-              style={{ color: theme.primary_color }}
-            >
-              Studio OS
-            </span>
-          </p>
+      <footer className="bg-black text-white py-16 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div 
+                className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-black font-bold text-xl"
+                style={{
+                  background: `linear-gradient(to bottom right, ${theme.primary_color}, ${theme.secondary_color})`
+                }}
+              >
+                {studio?.name?.charAt(0) || 'S'}
+              </div>
+              <span className="font-bold text-2xl tracking-tighter">{studio?.name || 'Studio'}</span>
+            </div>
+            <p className="text-gray-400 max-w-xs">Elevating dance culture since 2024.</p>
+          </div>
+          <div className="flex gap-12">
+            <div>
+              <h5 className="font-bold mb-4 uppercase text-xs tracking-widest" style={{ color: theme.primary_color }}>Platform</h5>
+              <ul className="space-y-2 text-gray-400 font-medium">
+                <li><a href="#" className="hover:text-white transition-colors">Booking Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Cancellation</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Membership</a></li>
+              </ul>
+            </div>
+            <div>
+              <h5 className="font-bold mb-4 uppercase text-xs tracking-widest" style={{ color: theme.primary_color }}>Legal</h5>
+              <ul className="space-y-2 text-gray-400 font-medium">
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Use</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 text-gray-500 text-sm">
+          <p>© {new Date().getFullYear()} {studio?.name || 'Studio'}. All rights reserved.</p>
+          <p className="flex items-center gap-2">Powered by <span className="text-white font-bold">Studio OS</span></p>
         </div>
       </footer>
+
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

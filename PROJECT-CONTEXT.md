@@ -272,6 +272,53 @@ git push origin main
 
 ## ✨ NEW FEATURES (January 2026)
 
+### Public Booking Page Redesign
+1. **Modern Hero Section**
+   - Full-screen hero image (uses first photo from gallery)
+   - Dynamic studio name display (replaces generic "Elevate Your Movement")
+   - Location badge showing "Open Today • [City]"
+   - Studio description from `about` field
+   - Social proof indicator ("Joined by 2k+ Dancers")
+
+2. **Enhanced Navigation Bar**
+   - Fixed glass morphism design with backdrop blur
+   - Studio logo/initial with gradient background
+   - Phone call button
+   - WhatsApp button with pre-filled message "Hey I have query"
+   - Book Now button (smooth scroll to booking section)
+
+3. **Tabbed Booking Interface**
+   - "Book a Class" tab: Enhanced date picker and class listings with instructor avatars
+   - "Rent the Studio" tab: Studio rental interface with rates, amenities, and availability (dummy data, ready for future implementation)
+
+4. **Gallery Section**
+   - Responsive grid layout (2x2 + 1 large image)
+   - Hover scale animations
+   - Displays photos from studio's `photos` array
+   - Only shows if photos exist
+
+5. **Testimonials Section**
+   - 3-column grid layout
+   - Displays testimonials from studio's `testimonials` array
+   - Shows quote, author name, and star ratings
+   - Only shows if testimonials exist
+
+6. **Map & Contact Section**
+   - Google Maps embed (generated from studio address)
+   - Address and business hours display
+   - WhatsApp support card overlay with instant contact
+   - Directions button linking to Google Maps
+
+7. **Footer**
+   - Studio branding
+   - Platform and legal links
+   - "Powered by Studio OS" credit
+
+8. **Backend API Updates**
+   - `/studio/public/<slug>` endpoint now includes all media fields:
+     - `photos`, `videos`, `testimonials`, `amenities`, `about`, `social_links`
+   - All fields properly serialized and returned in API response
+
 ### Theme Customization & Media Management
 1. **Theme Settings** - Studios can customize colors, gradients, and branding for their public booking page
    - Primary/secondary colors

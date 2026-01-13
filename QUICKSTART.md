@@ -23,9 +23,11 @@ npm run dev
 - Password: password123
 
 ### New Features (January 2026)
+- **Public Booking Page Redesign**: Modern, professional booking page with hero section, gallery, testimonials, and map integration
 - **Theme Customization**: Customize colors for your public booking page in Settings → Theme
 - **Media Management**: Add photos, videos, testimonials, and amenities in Settings → Media
 - **Social Links**: Connect Instagram, YouTube, and Facebook in Settings → Media
+- **WhatsApp Quick Contact**: Navigation includes WhatsApp button with pre-filled query message
 
 ---
 

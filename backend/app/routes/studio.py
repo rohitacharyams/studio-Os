@@ -376,7 +376,13 @@ def get_public_studio(slug):
             'currency': studio.currency,
             'business_hours_open': studio.business_hours_open,
             'business_hours_close': studio.business_hours_close,
-            'theme_settings': studio.theme_settings or {}
+            'theme_settings': studio.theme_settings or {},
+            'photos': studio.photos or [],
+            'videos': studio.videos or [],
+            'testimonials': studio.testimonials or [],
+            'amenities': studio.amenities or [],
+            'about': studio.about,
+            'social_links': studio.social_links or {}
         },
         'classes': [c.to_dict() for c in classes]
     })

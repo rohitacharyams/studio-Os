@@ -503,6 +503,11 @@ class DanceClass(db.Model):
     # Instructor info
     instructor_id = db.Column(db.String(36), db.ForeignKey('users.id'))
     
+    # Instructor details (direct fields - replacing instructor_id)
+    instructor_name = db.Column(db.String(255))
+    instructor_description = db.Column(db.Text)
+    instructor_instagram_handle = db.Column(db.String(100))
+    
     # Enhanced media & details (JSON fields)
     images = db.Column(db.JSON, default=list)  # List of image URLs
     videos = db.Column(db.JSON, default=list)  # List of video URLs (YouTube, etc.)
@@ -537,6 +542,9 @@ class DanceClass(db.Model):
             'min_capacity': self.min_capacity,
             'price': self.price,
             'instructor_id': self.instructor_id,
+            'instructor_name': self.instructor_name,
+            'instructor_description': self.instructor_description,
+            'instructor_instagram_handle': self.instructor_instagram_handle,
             'images': self.images or [],
             'videos': self.videos or [],
             'artist_details': self.artist_details or {},
@@ -689,6 +697,10 @@ class ClassSession(db.Model):
     instructor_id = db.Column(db.String(36), db.ForeignKey('users.id'))
     substitute_instructor_id = db.Column(db.String(36), db.ForeignKey('users.id'))
     
+    # Instructor details (direct fields - replacing instructor_id)
+    instructor_name = db.Column(db.String(255))
+    substitute_instructor_name = db.Column(db.String(255))
+    
     # Room
     room_id = db.Column(db.String(36), db.ForeignKey('rooms.id'))
     
@@ -729,6 +741,8 @@ class ClassSession(db.Model):
             'available_spots': self.available_spots,
             'is_full': self.is_full,
             'instructor_id': self.instructor_id,
+            'instructor_name': self.instructor_name,
+            'substitute_instructor_name': self.substitute_instructor_name,
             'room_id': self.room_id,
             'status': self.status,
         }
@@ -755,8 +769,10 @@ class Booking(db.Model):
     
     # Payment
     payment_id = db.Column(db.String(36), db.ForeignKey('payments.id'))
-    payment_method = db.Column(db.String(20))  # drop_in, class_pack, subscription, wallet
+    payment_method = db.Column(db.String(20))  # drop_in, class_pack, subscription, wallet, online, pay_at_studio
     class_pack_purchase_id = db.Column(db.String(36), db.ForeignKey('class_pack_purchases.id'))
+    razorpay_payment_id = db.Column(db.String(100), nullable=True)  # Razorpay payment ID for online payments
+    razorpay_order_id = db.Column(db.String(100), nullable=True)  # Razorpay order ID for online payments
     
     # Timestamps
     booked_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -781,6 +797,8 @@ class Booking(db.Model):
             'status': self.status,
             'waitlist_position': self.waitlist_position,
             'payment_method': self.payment_method,
+            'razorpay_payment_id': self.razorpay_payment_id,
+            'razorpay_order_id': self.razorpay_order_id,
             'booked_at': self.booked_at.isoformat() if self.booked_at else None,
             'confirmed_at': self.confirmed_at.isoformat() if self.confirmed_at else None,
             'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None,

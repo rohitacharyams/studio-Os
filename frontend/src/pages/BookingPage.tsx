@@ -27,13 +27,6 @@ interface WeeklySchedule {
   [key: number]: ClassSession[];
 }
 
-interface Instructor {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
 interface CreateClassForm {
   name: string;
   dance_style: string;
@@ -41,7 +34,9 @@ interface CreateClassForm {
   duration_minutes: number;
   max_capacity: number;
   price: number;
-  instructor_id: string;
+  instructor_name: string;
+  instructor_description: string;
+  instructor_instagram_handle: string;
   room: string;
   start_time: string;
   session_dates: string[];
@@ -80,7 +75,7 @@ export default function BookingPage() {
   
   // Create class modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  // Removed instructors state - no longer needed
   const [createLoading, setCreateLoading] = useState(false);
   const [createForm, setCreateForm] = useState<CreateClassForm>({
     name: '',
@@ -89,7 +84,9 @@ export default function BookingPage() {
     duration_minutes: 60,
     max_capacity: 20,
     price: 500,
-    instructor_id: '',
+    instructor_name: '',
+    instructor_description: '',
+    instructor_instagram_handle: '',
     room: 'Main Studio',
     start_time: '18:00',
     session_dates: [],
@@ -99,7 +96,6 @@ export default function BookingPage() {
 
   useEffect(() => {
     fetchSchedule();
-    fetchInstructors();
   }, [weekStart]);
 
   const fetchSchedule = async () => {
@@ -113,15 +109,6 @@ export default function BookingPage() {
       console.error('Failed to fetch schedule:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchInstructors = async () => {
-    try {
-      const response = await api.get('/studio/instructors');
-      setInstructors(response.data.instructors || []);
-    } catch (err) {
-      console.error('Failed to fetch instructors:', err);
     }
   };
 
@@ -148,7 +135,9 @@ export default function BookingPage() {
         duration_minutes: 60,
         max_capacity: 20,
         price: 500,
-        instructor_id: '',
+        instructor_name: '',
+        instructor_description: '',
+        instructor_instagram_handle: '',
         room: 'Main Studio',
         start_time: '18:00',
         session_dates: [],
@@ -539,21 +528,50 @@ export default function BookingPage() {
                 </select>
               </div>
 
-              {/* Instructor */}
+              {/* Instructor Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Instructor / Choreographer
+                  Instructor Name *
                 </label>
-                <select
-                  value={createForm.instructor_id}
-                  onChange={(e) => setCreateForm({ ...createForm, instructor_id: e.target.value })}
+                <input
+                  type="text"
+                  value={createForm.instructor_name}
+                  onChange={(e) => setCreateForm({ ...createForm, instructor_name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Select instructor</option>
-                  {instructors.map(inst => (
-                    <option key={inst.id} value={inst.id}>{inst.name}</option>
-                  ))}
-                </select>
+                  placeholder="e.g., Priya Sharma"
+                  required
+                />
+              </div>
+
+              {/* Instructor Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Instructor Description
+                </label>
+                <textarea
+                  value={createForm.instructor_description}
+                  onChange={(e) => setCreateForm({ ...createForm, instructor_description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Brief description about the instructor..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Instagram Handle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Instagram Handle
+                </label>
+                <div className="flex items-center">
+                  <span className="px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500">@</span>
+                  <input
+                    type="text"
+                    value={createForm.instructor_instagram_handle}
+                    onChange={(e) => setCreateForm({ ...createForm, instructor_instagram_handle: e.target.value.replace('@', '') })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="instructor_handle"
+                  />
+                </div>
               </div>
 
               {/* Room */}

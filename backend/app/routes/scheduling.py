@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 import uuid
 from datetime import time, datetime
 
-from app.models import db, User, DanceClass, ClassSchedule, Room, InstructorAvailability
+from app.models import db, User, DanceClass, ClassSchedule, Room
 from app.scheduling import ScheduleOptimizer, ScheduleConstraints, ScheduleGenerator
 
 scheduling_bp = Blueprint('scheduling', __name__)
@@ -152,93 +152,6 @@ def create_room():
     db.session.commit()
     
     return jsonify(room.to_dict()), 201
-
-
-@scheduling_bp.route('/instructors', methods=['GET'])
-@jwt_required()
-def list_instructors():
-    """List all instructors with their availability."""
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    instructors = User.query.filter_by(
-        studio_id=user.studio_id,
-        role='INSTRUCTOR'
-    ).all()
-    
-    result = []
-    for instructor in instructors:
-        availability = InstructorAvailability.query.filter_by(
-            instructor_id=instructor.id
-        ).all()
-        
-        result.append({
-            'id': instructor.id,
-            'name': f"{instructor.first_name} {instructor.last_name}",
-            'email': instructor.email,
-            'specialties': instructor.extra_data.get('specialties', []) if instructor.extra_data else [],
-            'availability': [a.to_dict() for a in availability]
-        })
-    
-    return jsonify({'instructors': result})
-
-
-@scheduling_bp.route('/instructors/<instructor_id>/availability', methods=['POST'])
-@jwt_required()
-def set_availability(instructor_id):
-    """
-    Set instructor availability.
-    
-    Body:
-    {
-        "availability": [
-            {"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"},
-            {"day_of_week": 1, "start_time": "09:00", "end_time": "17:00"}
-        ]
-    }
-    """
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    instructor = User.query.filter_by(
-        id=instructor_id,
-        studio_id=user.studio_id
-    ).first()
-    
-    if not instructor:
-        return jsonify({'error': 'Instructor not found'}), 404
-    
-    data = request.get_json()
-    if not data or 'availability' not in data:
-        return jsonify({'error': 'availability is required'}), 400
-    
-    # Clear existing availability
-    InstructorAvailability.query.filter_by(instructor_id=instructor_id).delete()
-    
-    # Add new availability
-    for slot in data['availability']:
-        start = datetime.strptime(slot['start_time'], '%H:%M').time()
-        end = datetime.strptime(slot['end_time'], '%H:%M').time()
-        
-        avail = InstructorAvailability(
-            id=str(uuid.uuid4()),
-            instructor_id=instructor_id,
-            day_of_week=slot['day_of_week'],
-            start_time=start,
-            end_time=end,
-            is_available=True
-        )
-        db.session.add(avail)
-    
-    db.session.commit()
-    
-    return jsonify({'success': True})
 
 
 @scheduling_bp.route('/schedule', methods=['GET'])

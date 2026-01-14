@@ -103,8 +103,10 @@ export default function PublicBookingPage() {
     phone: '',
     email: ''
   });
+  const [formErrors, setFormErrors] = useState<{ phone?: string; email?: string }>({});
   const [processing, setProcessing] = useState(false);
   const [bookingId, setBookingId] = useState<number | null>(null);
+  const [bookingRef, setBookingRef] = useState<string | null>(null);
 
   // Generate week days
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -320,9 +322,34 @@ export default function PublicBookingPage() {
 
   const handleSubmitDetails = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
+
+    const errors: { phone?: string; email?: string } = {};
+
+    // Basic required checks
+    if (!formData.name.trim()) {
+      // Name is already required via input, so we just prevent progression here
       return;
     }
+
+    // Phone: must be exactly 10 digits (India), digits only
+    if (!/^\d{10}$/.test(formData.phone)) {
+      errors.phone = 'Enter a valid 10-digit WhatsApp number';
+    }
+
+    // Email: optional, but if present must match basic email pattern
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        errors.email = 'Enter a valid email address';
+      }
+    }
+
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
     setBookingStep('payment');
   };
 
@@ -360,6 +387,28 @@ export default function PublicBookingPage() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature
             });
+
+            // Create booking after successful payment verification
+            const bookingResponse = await api.post('/bookings/public/book', {
+              studio_slug: studioSlug,
+              session_id: selectedSession.id,
+              customer_name: formData.name,
+              customer_phone: formData.phone,
+              customer_email: formData.email,
+              payment_method: 'online',
+              payment_status: 'paid',
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id
+            });
+
+            const booking = bookingResponse.data.booking;
+            if (booking) {
+              setBookingId(booking.id || Math.floor(Math.random() * 10000));
+              setBookingRef(booking.booking_number || booking.id || null);
+            } else {
+              setBookingId(Math.floor(Math.random() * 10000));
+            }
+
             setBookingStep('success');
           } catch {
             setError('Payment verification failed');
@@ -381,6 +430,7 @@ export default function PublicBookingPage() {
       // For demo, simulate success
       if (err.response?.status === 401 || err.message?.includes('Network')) {
         setBookingId(Math.floor(Math.random() * 10000));
+        setBookingRef(null);
         setBookingStep('success');
       } else {
         setError(err.response?.data?.message || err.response?.data?.error || 'Failed to process payment');
@@ -403,7 +453,9 @@ export default function PublicBookingPage() {
         customer_email: formData.email,
         payment_method: 'pay_at_studio'
       });
-      setBookingId(response.data.booking?.id || Math.floor(Math.random() * 10000));
+      const booking = response.data.booking;
+      setBookingId(booking?.id || Math.floor(Math.random() * 10000));
+      setBookingRef(booking?.booking_number || booking?.id || null);
       setBookingStep('success');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create booking');
@@ -417,6 +469,7 @@ export default function PublicBookingPage() {
     setBookingStep('select');
     setFormData({ name: '', phone: '', email: '' });
     setBookingId(null);
+    setBookingRef(null);
     setError('');
   };
 
@@ -856,17 +909,35 @@ export default function PublicBookingPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     <Phone className="w-4 h-4 inline mr-1" /> WhatsApp Number *
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+91 98765 43210"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-                    style={{ '--focus-ring': theme.primary_color } as React.CSSProperties}
-                    onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.primary_color}40`}
-                    onBlur={(e) => e.currentTarget.style.boxShadow = ''}
-                  />
+                  <div className="flex items-center rounded-lg border bg-white overflow-hidden"
+                    style={{ borderColor: formErrors.phone ? '#dc2626' : '#d1d5db' }}
+                  >
+                    <span className="px-3 text-gray-500 select-none text-sm border-r border-gray-200 bg-gray-50">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setFormData({ ...formData, phone: digitsOnly });
+                        if (formErrors.phone && /^\d{10}$/.test(digitsOnly)) {
+                          setFormErrors((prev) => ({ ...prev, phone: undefined }));
+                        }
+                      }}
+                      placeholder="98765 43210"
+                      className="flex-1 px-3 py-3 border-0 focus:ring-2 focus:border-transparent rounded-r-lg"
+                      style={{ '--focus-ring': theme.primary_color } as React.CSSProperties}
+                      onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.primary_color}40`}
+                      onBlur={(e) => e.currentTarget.style.boxShadow = ''}
+                    />
+                  </div>
+                  {formErrors.phone && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.phone}</p>
+                  )}
                 </div>
 
                 <div>
@@ -876,13 +947,27 @@ export default function PublicBookingPage() {
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, email: value });
+                      if (formErrors.email) {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!value.trim() || emailRegex.test(value.trim())) {
+                          setFormErrors((prev) => ({ ...prev, email: undefined }));
+                        }
+                      }
+                    }}
                     placeholder="you@example.com"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      formErrors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     style={{ '--focus-ring': theme.primary_color } as React.CSSProperties}
                     onFocus={(e) => e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.primary_color}40`}
                     onBlur={(e) => e.currentTarget.style.boxShadow = ''}
                   />
+                  {formErrors.email && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.email}</p>
+                  )}
                 </div>
 
                 <button
@@ -1031,7 +1116,7 @@ export default function PublicBookingPage() {
                   className="font-mono font-bold"
                   style={{ color: theme.primary_color }}
                 >
-                  #{bookingId || 'DEMO-1234'}
+                  #{bookingRef || bookingId || 'PENDING'}
                 </div>
                 
                   <div 

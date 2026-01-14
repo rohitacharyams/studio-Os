@@ -31,8 +31,9 @@ target_metadata = db.metadata
 
 
 def get_url():
-    """Get database URL from environment or config."""
-    return os.getenv(
+    """Get database URL from Flask app config."""
+    # Use the Flask app's database URL (which handles SQLite/PostgreSQL automatically)
+    return app.config.get('SQLALCHEMY_DATABASE_URI') or os.getenv(
         'DATABASE_URL',
         config.get_main_option('sqlalchemy.url')
     )

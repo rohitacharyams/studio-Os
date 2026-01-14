@@ -82,11 +82,25 @@ def list_sessions():
                 session_data['level'] = dance_class.level
                 session_data['drop_in_price'] = float(dance_class.price) if dance_class.price else 0
         
-        # Add instructor info
-        if session.instructor_id:
+        # Add instructor info - use new field or fallback to old field
+        if session.instructor_name:
+            session_data['instructor_name'] = session.instructor_name
+        elif session.instructor_id:
             instructor = User.query.get(session.instructor_id)
             if instructor:
                 session_data['instructor_name'] = instructor.name
+        elif session.class_id:
+            # Fallback to class instructor
+            dance_class = DanceClass.query.get(session.class_id)
+            if dance_class:
+                if dance_class.instructor_name:
+                    session_data['instructor_name'] = dance_class.instructor_name
+                elif dance_class.instructor_id:
+                    instructor = User.query.get(dance_class.instructor_id)
+                    if instructor:
+                        session_data['instructor_name'] = instructor.name
+        if 'instructor_name' not in session_data:
+            session_data['instructor_name'] = 'TBA'
         
         # Add room info
         if session.room_id:
@@ -1115,6 +1129,8 @@ def public_create_booking():
         booking_number=generate_booking_number(),
         status='CONFIRMED',
         payment_method=data.get('payment_method', 'pay_at_studio'),
+        razorpay_payment_id=data.get('razorpay_payment_id'),
+        razorpay_order_id=data.get('razorpay_order_id'),
         booked_at=datetime.utcnow()
     )
     
@@ -1195,6 +1211,8 @@ def get_session_bookings(session_id):
             'customer_phone': contact.phone if contact else '',
             'status': booking.status.lower() if booking.status else 'pending',
             'payment_method': booking.payment_method,
+            'razorpay_payment_id': booking.razorpay_payment_id,
+            'razorpay_order_id': booking.razorpay_order_id,
             'booked_at': booking.booked_at.isoformat() if booking.booked_at else booking.created_at.isoformat()
         })
     

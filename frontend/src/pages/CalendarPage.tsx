@@ -21,10 +21,7 @@ interface ClassSession {
   is_full: boolean;
 }
 
-interface Instructor {
-  id: string;
-  name: string;
-}
+// Removed Instructor interface - no longer needed
 
 interface CreateClassForm {
   name: string;
@@ -33,7 +30,9 @@ interface CreateClassForm {
   duration_minutes: number;
   max_capacity: number;
   price: number;
-  instructor_id: string;
+  instructor_name: string;
+  instructor_description: string;
+  instructor_instagram_handle: string;
   room: string;
   start_time: string;
   description: string;
@@ -71,10 +70,14 @@ const styleColors: Record<string, string> = {
 
 interface Booking {
   id: string;
+  booking_number?: string;
   customer_name: string;
   customer_email: string;
   customer_phone?: string;
   status: string;
+  payment_method?: string;
+  razorpay_payment_id?: string;
+  razorpay_order_id?: string;
   booked_at: string;
 }
 
@@ -87,7 +90,7 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [sessions, setSessions] = useState<ClassSession[]>([]);
-  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  // Removed instructors state - no longer needed
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
@@ -112,7 +115,7 @@ export default function CalendarPage() {
     date: '',
     start_time: '',
     max_capacity: 20,
-    instructor_id: '',
+    instructor_name: '',
     room: '',
     notes: ''
   });
@@ -124,7 +127,9 @@ export default function CalendarPage() {
     duration_minutes: 60,
     max_capacity: 20,
     price: 500,
-    instructor_id: '',
+    instructor_name: '',
+    instructor_description: '',
+    instructor_instagram_handle: '',
     room: 'Main Studio',
     start_time: '18:00',
     description: '',
@@ -194,14 +199,13 @@ export default function CalendarPage() {
       const startDate = viewMode === 'week' ? weekStart : monthStart;
       const endDateCalc = viewMode === 'week' ? weekEnd : monthEnd;
       
-      const [scheduleRes, instructorsRes, studioRes] = await Promise.all([
+      const [scheduleRes, studioRes] = await Promise.all([
         api.get('/bookings/schedule/weekly', {
           params: { 
             start_date: startDate.toISOString().split('T')[0],
             end_date: endDateCalc.toISOString().split('T')[0]
           }
         }),
-        api.get('/studio/instructors'),
         api.get('/studio')
       ]);
       
@@ -211,7 +215,6 @@ export default function CalendarPage() {
         allSessions.push(...daySessions);
       });
       setSessions(allSessions);
-      setInstructors(instructorsRes.data.instructors || []);
       if (studioRes.data.studio) {
         setStudioInfo({
           slug: studioRes.data.studio.slug,
@@ -395,10 +398,12 @@ export default function CalendarPage() {
       dance_style: '',
       level: 'All Levels',
       duration_minutes: 60,
-      max_capacity: 20,
-      price: 500,
-      instructor_id: '',
-      room: 'Main Studio',
+    max_capacity: 20,
+    price: 500,
+    instructor_name: '',
+    instructor_description: '',
+    instructor_instagram_handle: '',
+    room: 'Main Studio',
       start_time: '18:00',
       description: '',
       is_recurring: false,
@@ -474,7 +479,9 @@ export default function CalendarPage() {
       date: selectedSession.date,
       start_time: timeStr,
       max_capacity: selectedSession.max_capacity,
-      instructor_id: '', // We don't have instructor_id in session, only name
+      instructor_name: '',
+      instructor_description: '',
+      instructor_instagram_handle: '',
       room: '',
       notes: ''
     });
@@ -1055,14 +1062,29 @@ export default function CalendarPage() {
                   {sessionBookings.map((booking) => (
                     <div key={booking.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium text-gray-900">{booking.customer_name}</p>
                           <p className="text-sm text-gray-500">{booking.customer_email}</p>
                           {booking.customer_phone && (
                             <p className="text-sm text-gray-500">{booking.customer_phone}</p>
                           )}
+                          {booking.booking_number && (
+                            <p className="text-xs text-gray-400 mt-1">Booking: {booking.booking_number}</p>
+                          )}
+                          {booking.razorpay_payment_id && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <p className="text-xs font-medium text-gray-600 mb-1">Payment via Razorpay</p>
+                              <p className="text-xs text-gray-500 font-mono">Payment ID: {booking.razorpay_payment_id}</p>
+                              {booking.razorpay_order_id && (
+                                <p className="text-xs text-gray-500 font-mono">Order ID: {booking.razorpay_order_id}</p>
+                              )}
+                            </div>
+                          )}
+                          {booking.payment_method && booking.payment_method !== 'online' && !booking.razorpay_payment_id && (
+                            <p className="text-xs text-gray-400 mt-1 capitalize">Payment: {booking.payment_method.replace('_', ' ')}</p>
+                          )}
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ml-3 ${
                           booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
                           booking.status === 'pending' ? 'bg-amber-100 text-amber-700' :
                           'bg-gray-100 text-gray-700'
@@ -1150,15 +1172,40 @@ export default function CalendarPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Instructor</label>
-                  <select
-                    value={createForm.instructor_id}
-                    onChange={(e) => setCreateForm({ ...createForm, instructor_id: e.target.value })}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Instructor Name *</label>
+                  <input
+                    type="text"
+                    value={createForm.instructor_name}
+                    onChange={(e) => setCreateForm({ ...createForm, instructor_name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="">Select instructor</option>
-                    {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
+                    placeholder="e.g., Priya Sharma"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Instructor Description</label>
+                  <textarea
+                    value={createForm.instructor_description}
+                    onChange={(e) => setCreateForm({ ...createForm, instructor_description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Brief description about the instructor..."
+                    rows={3}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Instagram Handle</label>
+                  <div className="flex items-center">
+                    <span className="px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-500">@</span>
+                    <input
+                      type="text"
+                      value={createForm.instructor_instagram_handle}
+                      onChange={(e) => setCreateForm({ ...createForm, instructor_instagram_handle: e.target.value.replace('@', '') })}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="instructor_handle"
+                    />
+                  </div>
                 </div>
                 
                 <div>

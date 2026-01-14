@@ -18,6 +18,8 @@ interface Booking {
   studio_name?: string;
   studio_slug?: string;
   payment_method: string;
+  razorpay_payment_id?: string;
+  razorpay_order_id?: string;
   booked_at: string;
   checked_in_at: string | null;
   cancelled_at: string | null;
@@ -420,6 +422,17 @@ export default function MyBookingsPage() {
                       <div className="mt-2 text-sm text-red-600 flex items-center gap-1">
                         <X className="w-4 h-4" />
                         Cancelled on {formatDate(booking.cancelled_at)}
+                      </div>
+                    )}
+
+                    {/* Show Razorpay payment ID for studio owners (not customers) */}
+                    {!isCustomer && booking.razorpay_payment_id && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p className="text-xs font-medium text-gray-600 mb-1">Payment via Razorpay</p>
+                        <p className="text-xs text-gray-500 font-mono">Payment ID: {booking.razorpay_payment_id}</p>
+                        {booking.razorpay_order_id && (
+                          <p className="text-xs text-gray-500 font-mono">Order ID: {booking.razorpay_order_id}</p>
+                        )}
                       </div>
                     )}
                   </div>

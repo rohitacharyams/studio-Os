@@ -914,11 +914,19 @@ def get_classes():
     
     result = []
     for c in classes:
-        instructor = User.query.get(c.instructor_id) if c.instructor_id else None
-        result.append({
-            **c.to_dict(),
-            'instructor_name': instructor.name if instructor else 'TBA'
-        })
+        # Get instructor name from new field or fallback to old field
+        instructor_name = c.instructor_name
+        if not instructor_name and c.instructor_id:
+            instructor = User.query.get(c.instructor_id)
+            instructor_name = instructor.name if instructor else 'TBA'
+        if not instructor_name:
+            instructor_name = 'TBA'
+        
+        class_dict = c.to_dict()
+        class_dict['instructor_name'] = instructor_name
+        class_dict['instructor_description'] = c.instructor_description
+        class_dict['instructor_instagram_handle'] = c.instructor_instagram_handle
+        result.append(class_dict)
     
     return jsonify({'classes': result})
 
@@ -958,7 +966,10 @@ def create_class():
             max_capacity=int(data.get('max_capacity', 20)),
             min_capacity=int(data.get('min_capacity', 3)),
             price=float(data.get('price', 500)),
-            instructor_id=data.get('instructor_id'),
+            instructor_id=data.get('instructor_id'),  # Keep for backward compatibility
+            instructor_name=data.get('instructor_name', ''),
+            instructor_description=data.get('instructor_description', ''),
+            instructor_instagram_handle=data.get('instructor_instagram_handle', ''),
             is_active=True
         )
         
@@ -1011,7 +1022,8 @@ def create_class():
                         date=session_date,
                         start_time=datetime.combine(session_date, start_time),
                         end_time=datetime.combine(session_date, end_time),
-                        instructor_id=data.get('instructor_id'),
+                        instructor_id=data.get('instructor_id'),  # Keep for backward compatibility
+                        instructor_name=data.get('instructor_name') or dance_class.instructor_name,
                         max_capacity=dance_class.max_capacity,
                         booked_count=0,
                         status='SCHEDULED',
@@ -1026,13 +1038,19 @@ def create_class():
         
         db.session.commit()
         
-        instructor = User.query.get(dance_class.instructor_id) if dance_class.instructor_id else None
+        # Get instructor name from new field or fallback
+        instructor_name = dance_class.instructor_name
+        if not instructor_name and dance_class.instructor_id:
+            instructor = User.query.get(dance_class.instructor_id)
+            instructor_name = instructor.name if instructor else 'TBA'
+        if not instructor_name:
+            instructor_name = 'TBA'
         
         response = {
             'message': 'Class created successfully',
             'class': {
                 **dance_class.to_dict(),
-                'instructor_name': instructor.name if instructor else 'TBA'
+                'instructor_name': instructor_name
             },
             'sessions_created': sessions_created
         }
@@ -1077,8 +1095,15 @@ def update_class(class_id):
         dance_class.max_capacity = int(data['max_capacity'])
     if 'price' in data:
         dance_class.price = float(data['price'])
+    # Update instructor fields
     if 'instructor_id' in data:
-        dance_class.instructor_id = data['instructor_id']
+        dance_class.instructor_id = data['instructor_id']  # Keep for backward compatibility
+    if 'instructor_name' in data:
+        dance_class.instructor_name = data['instructor_name']
+    if 'instructor_description' in data:
+        dance_class.instructor_description = data['instructor_description']
+    if 'instructor_instagram_handle' in data:
+        dance_class.instructor_instagram_handle = data['instructor_instagram_handle']
     if 'is_active' in data:
         dance_class.is_active = data['is_active']
     
@@ -1109,48 +1134,6 @@ def delete_class(class_id):
     db.session.commit()
     
     return jsonify({'message': 'Class deleted successfully'})
-
-
-@studio_bp.route('/instructors', methods=['GET'])
-@jwt_required()
-def get_instructors():
-    """Get all instructors for the studio."""
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    
-    if not user or not user.studio_id:
-        return jsonify({'error': 'No studio found'}), 404
-    
-    # Get users with role 'instructor' for this studio
-    instructors = User.query.filter_by(
-        studio_id=user.studio_id,
-        role='instructor'
-    ).all()
-    
-    # Also include the owner as potential instructor
-    owner = User.query.filter_by(
-        studio_id=user.studio_id,
-        role='owner'
-    ).first()
-    
-    result = []
-    if owner:
-        result.append({
-            'id': owner.id,
-            'name': owner.name,
-            'email': owner.email,
-            'role': 'owner'
-        })
-    
-    for inst in instructors:
-        result.append({
-            'id': inst.id,
-            'name': inst.name,
-            'email': inst.email,
-            'role': 'instructor'
-        })
-    
-    return jsonify({'instructors': result})
 
 
 @studio_bp.route('/explore/classes', methods=['GET'])

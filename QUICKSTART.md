@@ -23,6 +23,10 @@ npm run dev
 - Password: password123
 
 ### New Features (January 2026)
+- **S3 Integration**: AWS S3 service for uploading and managing class images and videos
+- **Class Media Upload**: Upload images and videos when creating classes (multipart/form-data support)
+- **Unified Media Slider**: Combined image/video slider on booking page with navigation and thumbnails
+- **Class Image Thumbnails**: Class list shows actual class images with gradient avatar fallback
 - **Public Booking Page Redesign**: Modern, professional booking page with hero section, gallery, testimonials, and map integration
 - **Theme Customization**: Customize colors for your public booking page in Settings → Theme
 - **Media Management**: Add photos, videos, testimonials, and amenities in Settings → Media

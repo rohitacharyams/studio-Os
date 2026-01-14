@@ -1,11 +1,13 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 import uuid
 import re
+import json
 
 from app import db
 from app.models import User, Studio, StudioKnowledge, DanceClass, ClassSchedule, ClassSession
+from app.services.s3_service import get_s3_service, S3ServiceError
 
 studio_bp = Blueprint('studio', __name__)
 
@@ -934,7 +936,7 @@ def get_classes():
 @studio_bp.route('/classes', methods=['POST'])
 @jwt_required()
 def create_class():
-    """Create a new class with optional sessions."""
+    """Create a new class with optional sessions and media uploads."""
     import uuid
     from datetime import datetime, time, timedelta
     
@@ -947,14 +949,80 @@ def create_class():
     if user.role not in ['owner', 'admin']:
         return jsonify({'error': 'Only studio owners can create classes'}), 403
     
-    data = request.json
+    # Handle both JSON and multipart/form-data
+    if request.is_json:
+        data = request.json
+        image_files = []
+        video_files = []
+    else:
+        # Multipart form data
+        data = {}
+        # Get JSON data if provided as form field
+        if 'data' in request.form:
+            try:
+                data = json.loads(request.form['data'])
+            except json.JSONDecodeError:
+                pass
+        
+        # Get individual form fields
+        for key in ['name', 'description', 'dance_style', 'level', 'duration_minutes', 
+                    'max_capacity', 'min_capacity', 'price', 'instructor_id', 
+                    'instructor_name', 'instructor_description', 'instructor_instagram_handle',
+                    'start_time', 'room', 'session_dates']:
+            if key in request.form:
+                value = request.form[key]
+                # Try to parse as JSON for complex types
+                if key in ['session_dates']:
+                    try:
+                        data[key] = json.loads(value)
+                    except:
+                        data[key] = value
+                elif key in ['duration_minutes', 'max_capacity', 'min_capacity']:
+                    try:
+                        data[key] = int(value)
+                    except:
+                        data[key] = value
+                elif key == 'price':
+                    try:
+                        data[key] = float(value)
+                    except:
+                        data[key] = value
+                else:
+                    data[key] = value
+        
+        # Get image and video URLs from form (if provided as JSON strings)
+        if 'images' in request.form:
+            try:
+                data['images'] = json.loads(request.form['images'])
+            except:
+                data['images'] = []
+        if 'videos' in request.form:
+            try:
+                data['videos'] = json.loads(request.form['videos'])
+            except:
+                data['videos'] = []
+        
+        # Get uploaded files
+        # Check for files - Flask's request.files can have files even if the key check fails
+        image_files = request.files.getlist('image_files')
+        video_files = request.files.getlist('video_files')
+        
+        # Filter out empty file objects
+        image_files = [f for f in image_files if f and f.filename]
+        video_files = [f for f in video_files if f and f.filename]
+        
+        current_app.logger.info(f"Received {len(image_files)} image files and {len(video_files)} video files")
     
     # Validate required fields
     if not data.get('name'):
         return jsonify({'error': 'Class name is required'}), 400
     
     try:
-        # Create the class
+        # Start with any provided URLs
+        image_urls = data.get('images', []) if isinstance(data.get('images'), list) else []
+        video_urls = data.get('videos', []) if isinstance(data.get('videos'), list) else []
+        
+        # Create the class first to get the class_id
         dance_class = DanceClass(
             id=str(uuid.uuid4()),
             studio_id=user.studio_id,
@@ -970,11 +1038,63 @@ def create_class():
             instructor_name=data.get('instructor_name', ''),
             instructor_description=data.get('instructor_description', ''),
             instructor_instagram_handle=data.get('instructor_instagram_handle', ''),
+            images=image_urls,  # Start with provided URLs
+            videos=video_urls,  # Start with provided URLs
             is_active=True
         )
         
         db.session.add(dance_class)
-        db.session.flush()  # Get the class ID
+        db.session.flush()  # Get the class ID - needed for S3 uploads
+        
+        # Upload image files to S3 (now that we have class_id)
+        if image_files:
+            s3_service = get_s3_service()
+            for image_file in image_files:
+                if image_file and image_file.filename:
+                    try:
+                        result = s3_service.upload_file(
+                            file=image_file,
+                            file_type='image',
+                            studio_id=user.studio_id,
+                            context='class',
+                            class_id=dance_class.id
+                        )
+                        image_urls.append(result['url'])
+                        current_app.logger.info(f"Uploaded image: {result['url']}")
+                    except S3ServiceError as e:
+                        # Log error but continue - don't fail entire class creation
+                        current_app.logger.error(f"Failed to upload image {image_file.filename}: {str(e)}")
+                        print(f"Warning: Failed to upload image {image_file.filename}: {str(e)}")
+        
+        # Upload video files to S3 (now that we have class_id)
+        if video_files:
+            s3_service = get_s3_service()
+            for video_file in video_files:
+                if video_file and video_file.filename:
+                    try:
+                        result = s3_service.upload_file(
+                            file=video_file,
+                            file_type='video',
+                            studio_id=user.studio_id,
+                            context='class',
+                            class_id=dance_class.id
+                        )
+                        video_urls.append(result['url'])
+                        current_app.logger.info(f"Uploaded video: {result['url']}")
+                    except S3ServiceError as e:
+                        # Log error but continue - don't fail entire class creation
+                        current_app.logger.error(f"Failed to upload video {video_file.filename}: {str(e)}")
+                        print(f"Warning: Failed to upload video {video_file.filename}: {str(e)}")
+        
+        # Update class with final URLs (including uploaded files)
+        current_app.logger.info(f"Setting class images: {image_urls}, videos: {video_urls}")
+        dance_class.images = image_urls
+        dance_class.videos = video_urls
+        
+        # Mark the class as modified to ensure SQLAlchemy tracks the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(dance_class, 'images')
+        flag_modified(dance_class, 'videos')
         
         # Create sessions if dates provided
         sessions_created = []
@@ -1036,7 +1156,16 @@ def create_class():
                     session_errors.append(f"{session_date_str}: {str(e)}")
                     continue
         
-        db.session.commit()
+        # Commit all changes including images and videos
+        try:
+            db.session.commit()
+            # Verify the data was saved
+            db.session.refresh(dance_class)
+            current_app.logger.info(f"After commit - Class images: {dance_class.images}, videos: {dance_class.videos}")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Failed to commit class with images/videos: {str(e)}")
+            raise
         
         # Get instructor name from new field or fallback
         instructor_name = dance_class.instructor_name

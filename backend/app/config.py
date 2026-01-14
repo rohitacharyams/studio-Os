@@ -75,6 +75,19 @@ class Config:
     
     # CORS
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
+    
+    # AWS S3 Configuration
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+    AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
+    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'studio-os-assets')
+    S3_BUCKET_URL = os.getenv('S3_BUCKET_URL', '')  # Public bucket URL or CDN URL
+    
+    # File Upload Limits
+    MAX_IMAGE_SIZE = int(os.getenv('MAX_IMAGE_SIZE', 10 * 1024 * 1024))  # 10MB
+    MAX_VIDEO_SIZE = int(os.getenv('MAX_VIDEO_SIZE', 100 * 1024 * 1024))  # 100MB
+    ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+    ALLOWED_VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi', 'webm']
 
 
 class DevelopmentConfig(Config):

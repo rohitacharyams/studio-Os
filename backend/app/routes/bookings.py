@@ -3,7 +3,7 @@ Booking API routes for class bookings, sessions, and waitlist management.
 """
 import uuid
 from datetime import datetime, timedelta
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import (
@@ -986,13 +986,17 @@ def public_list_sessions(studio_slug):
             dance_class = DanceClass.query.get(session.class_id) if session.class_id else None
             # Get instructor name if available
             instructor_name = 'Instructor'
-            if dance_class and dance_class.instructor_id:
-                from app.models import User
-                instructor = User.query.get(dance_class.instructor_id)
-                if instructor:
-                    instructor_name = instructor.name
+            if dance_class:
+                # Prefer instructor_name field, fallback to instructor_id lookup
+                if dance_class.instructor_name:
+                    instructor_name = dance_class.instructor_name
+                elif dance_class.instructor_id:
+                    from app.models import User
+                    instructor = User.query.get(dance_class.instructor_id)
+                    if instructor:
+                        instructor_name = instructor.name
             
-            result.append({
+            session_data = {
                 'id': session.id,
                 'class_name': dance_class.name if dance_class else 'Class',
                 'style': dance_class.dance_style if dance_class else '',
@@ -1005,7 +1009,27 @@ def public_list_sessions(studio_slug):
                 'max_students': session.max_capacity,
                 'drop_in_price': float(dance_class.price) if dance_class and dance_class.price else 500,
                 'is_cancelled': session.status == 'CANCELLED'
-            })
+            }
+            
+            # Add class details if available
+            if dance_class:
+                # Refresh to get latest data from database
+                db.session.refresh(dance_class)
+                session_data['class_id'] = dance_class.id
+                session_data['class_description'] = dance_class.description or ''
+                # Get images/videos - ensure we get actual data, not empty arrays
+                session_data['class_images'] = dance_class.images if dance_class.images else []
+                session_data['class_videos'] = dance_class.videos if dance_class.videos else []
+                session_data['instructor_description'] = dance_class.instructor_description or ''
+                session_data['instructor_instagram_handle'] = dance_class.instructor_instagram_handle or ''
+                session_data['class_price'] = float(dance_class.price) if dance_class.price else 500
+                session_data['class_capacity'] = dance_class.max_capacity
+                session_data['class_duration'] = dance_class.duration_minutes
+                
+                # Debug logging
+                current_app.logger.info(f"Session {session.id} - Class {dance_class.name} - Images: {session_data['class_images']}, Videos: {session_data['class_videos']}")
+            
+            result.append(session_data)
         return jsonify({'sessions': result})
     
     # Fallback: Generate sessions from ClassSchedules with specific_date
@@ -1022,27 +1046,50 @@ def public_list_sessions(studio_slug):
         dance_class = schedule.dance_class
         # Get instructor name if available
         instructor_name = 'Instructor'
-        if dance_class.instructor_id:
-            from app.models import User
-            instructor = User.query.get(dance_class.instructor_id)
-            if instructor:
-                instructor_name = instructor.name
-        
-        result.append({
-            'id': schedule.id,
-            'schedule_id': schedule.id,  # Mark this as a schedule
-            'class_name': dance_class.name,
-            'style': dance_class.dance_style,
-            'level': dance_class.level,
-            'instructor_name': instructor_name,
-            'start_time': datetime.combine(schedule.specific_date or datetime.utcnow().date(), schedule.start_time).isoformat() if schedule.start_time else datetime.combine(schedule.specific_date or datetime.utcnow().date(), datetime.strptime('18:00', '%H:%M').time()).isoformat(),
-            'end_time': datetime.combine(schedule.specific_date or datetime.utcnow().date(), schedule.end_time).isoformat() if schedule.end_time else datetime.combine(schedule.specific_date or datetime.utcnow().date(), datetime.strptime('19:00', '%H:%M').time()).isoformat(),
-            'date': schedule.specific_date.isoformat() if schedule.specific_date else datetime.utcnow().date().isoformat(),
-            'spots_available': dance_class.max_capacity - (schedule.current_enrollment or 0),
-            'max_students': dance_class.max_capacity,
-            'drop_in_price': float(dance_class.price) if dance_class.price else 500,
-            'is_cancelled': schedule.is_cancelled
-        })
+        if dance_class:
+            # Prefer instructor_name field, fallback to instructor_id lookup
+            if dance_class.instructor_name:
+                instructor_name = dance_class.instructor_name
+            elif dance_class.instructor_id:
+                from app.models import User
+                instructor = User.query.get(dance_class.instructor_id)
+                if instructor:
+                    instructor_name = instructor.name
+            
+            schedule_data = {
+                'id': schedule.id,
+                'schedule_id': schedule.id,  # Mark this as a schedule
+                'class_name': dance_class.name,
+                'style': dance_class.dance_style,
+                'level': dance_class.level,
+                'instructor_name': instructor_name,
+                'start_time': datetime.combine(schedule.specific_date or datetime.utcnow().date(), schedule.start_time).isoformat() if schedule.start_time else datetime.combine(schedule.specific_date or datetime.utcnow().date(), datetime.strptime('18:00', '%H:%M').time()).isoformat(),
+                'end_time': datetime.combine(schedule.specific_date or datetime.utcnow().date(), schedule.end_time).isoformat() if schedule.end_time else datetime.combine(schedule.specific_date or datetime.utcnow().date(), datetime.strptime('19:00', '%H:%M').time()).isoformat(),
+                'date': schedule.specific_date.isoformat() if schedule.specific_date else datetime.utcnow().date().isoformat(),
+                'spots_available': dance_class.max_capacity - (schedule.current_enrollment or 0),
+                'max_students': dance_class.max_capacity,
+                'drop_in_price': float(dance_class.price) if dance_class.price else 500,
+                'is_cancelled': schedule.is_cancelled
+            }
+            
+            # Add class details - IMPORTANT: Get fresh data from database
+            schedule_data['class_id'] = dance_class.id
+            schedule_data['class_description'] = dance_class.description or ''
+            # Ensure we get the actual images/videos from the database
+            # Refresh the object to get latest data
+            db.session.refresh(dance_class)
+            schedule_data['class_images'] = dance_class.images if dance_class.images else []
+            schedule_data['class_videos'] = dance_class.videos if dance_class.videos else []
+            schedule_data['instructor_description'] = dance_class.instructor_description or ''
+            schedule_data['instructor_instagram_handle'] = dance_class.instructor_instagram_handle or ''
+            schedule_data['class_price'] = float(dance_class.price) if dance_class.price else 500
+            schedule_data['class_capacity'] = dance_class.max_capacity
+            schedule_data['class_duration'] = dance_class.duration_minutes
+            
+            # Debug logging
+            current_app.logger.info(f"Schedule {schedule.id} - Class {dance_class.name} - Images: {schedule_data['class_images']}, Videos: {schedule_data['class_videos']}")
+            
+            result.append(schedule_data)
     
     return jsonify({'sessions': result})
 

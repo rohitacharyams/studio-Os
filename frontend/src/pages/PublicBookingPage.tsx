@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Calendar, Clock, MapPin, ChevronLeft, ChevronRight, 
-  Check, Loader2, Phone, User, Mail, CreditCard, Wallet, MessageCircle
+  Check, Loader2, Phone, User, Mail, CreditCard, Wallet, MessageCircle, Image as ImageIcon, Video, Instagram, Users
 } from 'lucide-react';
 import api from '../lib/api';
 
@@ -19,6 +19,16 @@ interface ClassSession {
   max_students: number;
   drop_in_price: number;
   is_cancelled: boolean;
+  // Class details
+  class_id?: string;
+  class_description?: string;
+  class_images?: string[];
+  class_videos?: string[];
+  instructor_description?: string;
+  instructor_instagram_handle?: string;
+  class_price?: number;
+  class_capacity?: number;
+  class_duration?: number;
 }
 
 interface Studio {
@@ -98,6 +108,7 @@ export default function PublicBookingPage() {
   const [activeTab, setActiveTab] = useState<'classes' | 'studio'>('classes');
   const [selectedSession, setSelectedSession] = useState<ClassSession | null>(null);
   const [bookingStep, setBookingStep] = useState<'select' | 'details' | 'payment' | 'success'>('select');
+  const [mediaIndex, setMediaIndex] = useState(0);
   const [formData, setFormData] = useState<BookingFormData>({
     name: '',
     phone: '',
@@ -171,7 +182,14 @@ export default function PublicBookingPage() {
       
       try {
         const sessionsResponse = await api.get(`/bookings/public/sessions/${studioSlug}?start_date=${startDate}&end_date=${endDateStr}`);
-        setSessions(sessionsResponse.data.sessions || []);
+        const sessions = sessionsResponse.data.sessions || [];
+        // Debug: Log session data to see if images/videos are included
+        console.log('Sessions received:', sessions);
+        if (sessions.length > 0) {
+          console.log('First session class_images:', sessions[0].class_images);
+          console.log('First session class_videos:', sessions[0].class_videos);
+        }
+        setSessions(sessions);
       } catch {
         // If no sessions endpoint, use class data to generate demo sessions
         const classes = response.data.classes || [];
@@ -316,7 +334,14 @@ export default function PublicBookingPage() {
   };
 
   const handleSelectSession = (session: ClassSession) => {
+    // Debug: Log session data when selected
+    console.log('Selected session:', session);
+    console.log('Session class_images:', session.class_images);
+    console.log('Session class_videos:', session.class_videos);
+    console.log('Session class_description:', session.class_description);
+    
     setSelectedSession(session);
+    setMediaIndex(0); // Reset media index when selecting a new session
     setBookingStep('details');
   };
 
@@ -644,7 +669,8 @@ export default function PublicBookingPage() {
               </span>
               <span className="text-xl font-extrabold">Book a Class</span>
             </button>
-            <button
+            {/* Rent the Studio Tab - Commented Out */}
+            {/* <button
               onClick={() => setActiveTab('studio')}
               className={`flex-1 py-8 text-center transition-all duration-300 border-b-2 ${
                 activeTab === 'studio'
@@ -659,7 +685,7 @@ export default function PublicBookingPage() {
                 Rental
               </span>
               <span className="text-xl font-extrabold">Rent the Studio</span>
-            </button>
+            </button> */}
             </div>
 
           {/* Classes Content */}
@@ -735,8 +761,31 @@ export default function PublicBookingPage() {
                       className="group bg-white border border-gray-100 p-6 rounded-[24px] hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/5 transition-all flex flex-col md:flex-row items-center justify-between gap-6"
                     >
                       <div className="flex items-center gap-6 w-full">
-                        <div className="w-20 h-20 rounded-2xl bg-purple-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                          <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl">
+                        <div className="w-20 h-20 rounded-2xl bg-purple-100 flex-shrink-0 flex items-center justify-center overflow-hidden relative">
+                          {/* Show first class image if available, otherwise show gradient avatar */}
+                          {session.class_images && session.class_images.length > 0 ? (
+                            <img
+                              src={session.class_images[0]}
+                              alt={session.class_name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to gradient avatar if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const fallback = target.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          {/* Fallback gradient avatar - shown when no image or image fails */}
+                          <div 
+                            className={`w-full h-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl ${
+                              session.class_images && session.class_images.length > 0 ? 'absolute inset-0' : ''
+                            }`}
+                            style={{
+                              display: session.class_images && session.class_images.length > 0 ? 'none' : 'flex'
+                            }}
+                          >
                             {session.instructor_name.charAt(0)}
                           </div>
                         </div>
@@ -776,8 +825,8 @@ export default function PublicBookingPage() {
             </div>
           )}
 
-          {/* Studio Rental Content */}
-          {activeTab === 'studio' && (
+          {/* Studio Rental Content - Commented Out */}
+          {/* {activeTab === 'studio' && (
             <div className="p-8">
               <div className="grid md:grid-cols-2 gap-12">
                 <div>
@@ -850,11 +899,11 @@ export default function PublicBookingPage() {
                     </div>
                 </div>
             </div>
-        )}
+        )} */}
 
         {/* Booking Details Step */}
         {bookingStep === 'details' && selectedSession && (
-            <div className="p-8 max-w-lg mx-auto">
+            <div className="p-8 max-w-7xl mx-auto">
             <button
               onClick={resetBooking}
                 className="flex items-center gap-2 text-gray-600 mb-6 hover:text-purple-600 transition-colors"
@@ -862,31 +911,294 @@ export default function PublicBookingPage() {
               <ChevronLeft className="w-4 h-4" /> Back to classes
             </button>
 
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div 
-                className="p-6 text-white"
-                style={{
-                  background: `linear-gradient(to right, ${theme.primary_color}, ${theme.secondary_color})`
-                }}
-              >
-                <h2 className="text-xl font-bold mb-1">{selectedSession.class_name}</h2>
-                  <p className="text-white/80">with {selectedSession.instructor_name}</p>
-                <div className="flex items-center gap-4 mt-4 text-sm">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {new Date(selectedSession.date).toLocaleDateString('en-IN', { 
-                      weekday: 'long', day: 'numeric', month: 'short' 
-                    })}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    {formatTime(selectedSession.start_time)}
-                  </span>
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Left Side - Class Details */}
+              <div className="space-y-6">
+                {/* Class Header Card */}
+                <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div 
+                    className="p-6 text-white"
+                    style={{
+                      background: `linear-gradient(to right, ${theme.primary_color}, ${theme.secondary_color})`
+                    }}
+                  >
+                    <h2 className="text-xl font-bold mb-1">{selectedSession.class_name}</h2>
+                    <p className="text-white/80">with {selectedSession.instructor_name}</p>
+                    <div className="flex items-center gap-4 mt-4 text-sm">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(selectedSession.date).toLocaleDateString('en-IN', { 
+                          weekday: 'long', day: 'numeric', month: 'short' 
+                        })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {formatTime(selectedSession.start_time)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Class Media Slider - Images and Videos Combined */}
+                {((selectedSession.class_images && selectedSession.class_images.length > 0) || 
+                  (selectedSession.class_videos && selectedSession.class_videos.length > 0)) && (
+                  <div className="bg-white rounded-2xl shadow-lg p-6">
+                   
+                    
+                    {/* Combined Media Array */}
+                    {(() => {
+                      const images = selectedSession.class_images || [];
+                      const videos = selectedSession.class_videos || [];
+                      const allMedia = [
+                        ...images.map(url => ({ type: 'image', url })),
+                        ...videos.map(url => ({ type: 'video', url }))
+                      ];
+                      
+                      if (allMedia.length === 0) return null;
+                      
+                      const currentMedia = allMedia[mediaIndex];
+                      const canGoPrev = mediaIndex > 0;
+                      const canGoNext = mediaIndex < allMedia.length - 1;
+                      
+                      return (
+                        <div className="relative">
+                          {/* Main Media Display */}
+                          <div className={`relative rounded-lg overflow-hidden bg-gray-100 ${
+                            currentMedia.type === 'image' ? 'min-h-[500px] max-h-[600px]' : 'aspect-video'
+                          }`}>
+                            {currentMedia.type === 'image' ? (
+                              <img
+                                src={currentMedia.url}
+                                alt={`${selectedSession.class_name} media ${mediaIndex + 1}`}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3EImage%3C/text%3E%3C/svg%3E';
+                                }}
+                              />
+                            ) : (
+                              (() => {
+                                const videoUrl = currentMedia.url;
+                                const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
+                                const isVimeo = videoUrl.includes('vimeo.com');
+                                
+                                if (isYouTube) {
+                                  const videoId = videoUrl.includes('youtu.be') 
+                                    ? videoUrl.split('/').pop()?.split('?')[0]
+                                    : new URL(videoUrl).searchParams.get('v');
+                                  return (
+                                    <iframe
+                                      src={`https://www.youtube.com/embed/${videoId}`}
+                                      className="w-full h-full"
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                    />
+                                  );
+                                } else if (isVimeo) {
+                                  const videoId = videoUrl.split('/').pop()?.split('?')[0];
+                                  return (
+                                    <iframe
+                                      src={`https://player.vimeo.com/video/${videoId}`}
+                                      className="w-full h-full"
+                                      allow="autoplay; fullscreen; picture-in-picture"
+                                      allowFullScreen
+                                    />
+                                  );
+                                } else {
+                                  return (
+                                    <video
+                                      src={videoUrl}
+                                      controls
+                                      className="w-full h-full"
+                                      onError={() => {
+                                        console.error('Video load error:', videoUrl);
+                                      }}
+                                    />
+                                  );
+                                }
+                              })()
+                            )}
+                            
+                            {/* Navigation Arrows */}
+                            {allMedia.length > 1 && (
+                              <>
+                                {/* Left Arrow */}
+                                <button
+                                  onClick={() => {
+                                    if (canGoPrev) {
+                                      setMediaIndex(mediaIndex - 1);
+                                    }
+                                  }}
+                                  disabled={!canGoPrev}
+                                  className={`absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all ${
+                                    canGoPrev ? 'opacity-100 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                                  }`}
+                                  style={{ color: theme.primary_color }}
+                                >
+                                  <ChevronLeft className="w-6 h-6" />
+                                </button>
+                                
+                                {/* Right Arrow */}
+                                <button
+                                  onClick={() => {
+                                    if (canGoNext) {
+                                      setMediaIndex(mediaIndex + 1);
+                                    }
+                                  }}
+                                  disabled={!canGoNext}
+                                  className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/90 hover:bg-white shadow-lg transition-all ${
+                                    canGoNext ? 'opacity-100 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                                  }`}
+                                  style={{ color: theme.primary_color }}
+                                >
+                                  <ChevronRight className="w-6 h-6" />
+                                </button>
+                              </>
+                            )}
+                            
+                            {/* Media Indicator */}
+                            {allMedia.length > 1 && (
+                              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                                {allMedia.map((_, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => setMediaIndex(idx)}
+                                    className={`h-2 rounded-full transition-all ${
+                                      idx === mediaIndex 
+                                        ? 'w-8 bg-white' 
+                                        : 'w-2 bg-white/50 hover:bg-white/75'
+                                    }`}
+                                    style={idx === mediaIndex ? { backgroundColor: theme.primary_color } : {}}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Media Type Badge */}
+                            <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/50 backdrop-blur-sm text-white text-xs font-medium">
+                              {currentMedia.type === 'image' ? (
+                                <span className="flex items-center gap-1">
+                                  <ImageIcon className="w-3 h-3" />
+                                  Image {mediaIndex + 1} of {allMedia.length}
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  <Video className="w-3 h-3" />
+                                  Video {mediaIndex - images.length + 1} of {videos.length}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Thumbnail Strip (Optional - shows below main media) */}
+                          {allMedia.length > 1 && (
+                            <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+                              {allMedia.map((media, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setMediaIndex(idx)}
+                                  className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                                    idx === mediaIndex 
+                                      ? 'ring-2 ring-offset-2' 
+                                      : 'border-gray-200 hover:border-gray-400'
+                                  }`}
+                                  style={idx === mediaIndex ? { 
+                                    borderColor: theme.primary_color,
+                                    boxShadow: `0 0 0 2px ${theme.primary_color}40`
+                                  } : {}}
+                                >
+                                  {media.type === 'image' ? (
+                                    <img
+                                      src={media.url}
+                                      alt={`Thumbnail ${idx + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                      <Video className="w-6 h-6 text-white" />
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Class Details */}
+                <div className="bg-white rounded-2xl shadow-lg p-6">
+                  <h3 className="font-semibold text-gray-900 mb-4">Class Details</h3>
+                  
+                  {/* Description */}
+                  {selectedSession.class_description && (
+                    <div className="mb-4">
+                      <p className="text-gray-700 leading-relaxed">{selectedSession.class_description}</p>
+                    </div>
+                  )}
+
+                  {/* Instructor Info */}
+                  <div className="space-y-3 mb-4">
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-1">Instructor</h4>
+                      <p className="text-gray-700">{selectedSession.instructor_name}</p>
+                      {selectedSession.instructor_description && (
+                        <p className="text-sm text-gray-600 mt-1">{selectedSession.instructor_description}</p>
+                      )}
+                      {selectedSession.instructor_instagram_handle && (
+                        <a
+                          href={`https://instagram.com/${selectedSession.instructor_instagram_handle.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm mt-2"
+                          style={{ color: theme.primary_color }}
+                        >
+                          <Instagram className="w-4 h-4" />
+                          @{selectedSession.instructor_instagram_handle.replace('@', '')}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Class Info Grid */}
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                    <div>
+                      <span className="text-sm text-gray-500 block mb-1">Price</span>
+                      <span className="font-semibold text-gray-900">₹{selectedSession.drop_in_price}</span>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500 block mb-1 flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        Capacity
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {selectedSession.spots_available} / {selectedSession.max_students} spots
+                      </span>
+                    </div>
+                    {selectedSession.class_duration && (
+                      <div>
+                        <span className="text-sm text-gray-500 block mb-1 flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          Duration
+                        </span>
+                        <span className="font-semibold text-gray-900">{selectedSession.class_duration} mins</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-sm text-gray-500 block mb-1">Level</span>
+                      <span className="font-semibold text-gray-900">{selectedSession.level}</span>
+                    </div>
+                  </div>
+                </div>
+
+                
               </div>
 
-              <form onSubmit={handleSubmitDetails} className="p-6 space-y-4">
-                <h3 className="font-semibold text-gray-900 mb-4">Your Details</h3>
+              {/* Right Side - Booking Form */}
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <form onSubmit={handleSubmitDetails} className="p-6 space-y-4">
+                  <h3 className="font-semibold text-gray-900 mb-4">Your Details</h3>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -970,16 +1282,17 @@ export default function PublicBookingPage() {
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full py-3 text-white rounded-lg font-semibold transition-colors mt-6"
-                  style={{ backgroundColor: theme.primary_color }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  Continue to Payment
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    className="w-full py-3 text-white rounded-lg font-semibold transition-colors mt-6"
+                    style={{ backgroundColor: theme.primary_color }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  >
+                    Continue to Payment
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         )}

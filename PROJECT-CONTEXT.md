@@ -263,14 +263,50 @@ git push origin main
 
 ## 🐛 RECENT BUG FIXES (January 2026)
 
-1. **Date/Time Issues** - Fixed timezone handling for class schedules
-2. **415 Error on Bookings** - Added Content-Type header to API calls
-3. **Backend Session CRUD** - Implemented full create/update/delete for sessions
-4. **Delete Class UI** - Added cancel class button with confirmation modal
-5. **Edit Class UI** - Added edit functionality for sessions
-6. **Mobile Responsive** - Made CalendarPage, PublicBookingPage, MyBookingsPage responsive
+1. **S3 Data Persistence** - Fixed SQLAlchemy JSON field updates using flag_modified() to ensure images/videos are saved to database
+2. **Image Cropping** - Changed object-cover to object-contain for full image display without cropping
+3. **Date/Time Issues** - Fixed timezone handling for class schedules
+4. **415 Error on Bookings** - Added Content-Type header to API calls
+5. **Backend Session CRUD** - Implemented full create/update/delete for sessions
+6. **Delete Class UI** - Added cancel class button with confirmation modal
+7. **Edit Class UI** - Added edit functionality for sessions
+8. **Mobile Responsive** - Made CalendarPage, PublicBookingPage, MyBookingsPage responsive
 
 ## ✨ NEW FEATURES (January 2026)
+
+### S3 Integration & Class Media Management
+1. **AWS S3 Service**
+   - Centralized S3 service (`app/services/s3_service.py`) for file uploads
+   - Supports images and videos with validation
+   - Organized file structure: `classes/{studio_id}/{class_id}/{images|videos}/`
+   - Automatic URL generation and public access configuration
+   - Error handling with custom S3ServiceError exceptions
+
+2. **Class Creation with Media**
+   - Enhanced `/api/studio/classes` endpoint to accept multipart/form-data
+   - Upload images and videos directly when creating classes
+   - Support for both file uploads and external URLs
+   - Images and videos stored as JSON arrays in DanceClass model
+   - Proper database persistence with SQLAlchemy flag_modified()
+
+3. **Unified Media Slider**
+   - Combined image and video slider on booking details page
+   - Left/right arrow navigation
+   - Thumbnail strip below main media
+   - Progress indicators (dots)
+   - Media type badges (Image X of Y / Video X of Y)
+   - Full image display without cropping (object-contain)
+   - Support for YouTube, Vimeo, and direct video URLs
+
+4. **Class List Thumbnails**
+   - Class list displays first class image when available
+   - Automatic fallback to gradient avatar with instructor initial
+   - Error handling for failed image loads
+
+5. **Backend API Updates**
+   - `/api/bookings/public/sessions/<slug>` now includes class_images and class_videos
+   - Proper data refresh to ensure latest media URLs are returned
+   - Debug logging for media data flow
 
 ### Public Booking Page Redesign
 1. **Modern Hero Section**

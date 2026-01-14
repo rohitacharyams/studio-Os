@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, User, Users, ChevronLeft, ChevronRight,
-  Plus, X, AlertCircle, Loader2, Repeat, Check, Copy, Link, ExternalLink, Trash2, Edit3
+  Plus, X, AlertCircle, Loader2, Repeat, Check, Copy, Link, ExternalLink, Trash2, Edit3, Image as ImageIcon, Video, Upload
 } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -43,6 +43,9 @@ interface CreateClassForm {
   recurrence_end_date: string;
   // Single dates (if not recurring)
   session_dates: string[];
+  // Media
+  images: string[]; // URLs
+  videos: string[]; // URLs
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -138,7 +141,17 @@ export default function CalendarPage() {
     recurrence_days: [],
     recurrence_end_date: '',
     session_dates: [],
+    images: [],
+    videos: [],
   });
+
+  // File upload state
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [videoFiles, setVideoFiles] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate week/month dates
   const weekStart = useMemo(() => {
@@ -309,6 +322,53 @@ export default function CalendarPage() {
     return styleColors[style?.toLowerCase()] || 'bg-gray-500';
   };
 
+  // File upload handlers
+  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setImageFiles([...imageFiles, ...newFiles]);
+    }
+  };
+
+  const handleVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setVideoFiles([...videoFiles, ...newFiles]);
+    }
+  };
+
+  const removeImageFile = (index: number) => {
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
+  };
+
+  const removeVideoFile = (index: number) => {
+    setVideoFiles(videoFiles.filter((_, i) => i !== index));
+  };
+
+  const removeImageUrl = (index: number) => {
+    setImageUrls(imageUrls.filter((_, i) => i !== index));
+  };
+
+  const removeVideoUrl = (index: number) => {
+    setVideoUrls(videoUrls.filter((_, i) => i !== index));
+  };
+
+  const addImageUrl = () => {
+    const urlInput = document.getElementById('image-url-input') as HTMLInputElement;
+    if (urlInput && urlInput.value.trim()) {
+      setImageUrls([...imageUrls, urlInput.value.trim()]);
+      urlInput.value = '';
+    }
+  };
+
+  const addVideoUrl = () => {
+    const urlInput = document.getElementById('video-url-input') as HTMLInputElement;
+    if (urlInput && urlInput.value.trim()) {
+      setVideoUrls([...videoUrls, urlInput.value.trim()]);
+      urlInput.value = '';
+    }
+  };
+
   const handleCreateClass = async () => {
     if (!createForm.name) {
       setError('Class name is required');
@@ -344,16 +404,60 @@ export default function CalendarPage() {
         );
       }
 
-      await api.post('/studio/classes', {
-        ...createForm,
-        session_dates: sessionDates
+      // Prepare FormData for multipart upload
+      const formData = new FormData();
+      
+      // Add all form fields
+      formData.append('name', createForm.name);
+      formData.append('dance_style', createForm.dance_style);
+      formData.append('level', createForm.level);
+      formData.append('duration_minutes', createForm.duration_minutes.toString());
+      formData.append('max_capacity', createForm.max_capacity.toString());
+      formData.append('min_capacity', '3');
+      formData.append('price', createForm.price.toString());
+      formData.append('instructor_name', createForm.instructor_name);
+      formData.append('instructor_description', createForm.instructor_description || '');
+      formData.append('instructor_instagram_handle', createForm.instructor_instagram_handle || '');
+      formData.append('room', createForm.room);
+      formData.append('start_time', createForm.start_time);
+      formData.append('description', createForm.description || '');
+      formData.append('session_dates', JSON.stringify(sessionDates));
+
+      // Add image files
+      imageFiles.forEach((file) => {
+        formData.append('image_files', file);
+      });
+
+      // Add video files
+      videoFiles.forEach((file) => {
+        formData.append('video_files', file);
+      });
+
+      // Add image URLs (if any)
+      const allImageUrls = [...imageUrls];
+      if (allImageUrls.length > 0) {
+        formData.append('images', JSON.stringify(allImageUrls));
+      }
+
+      // Add video URLs (if any)
+      const allVideoUrls = [...videoUrls];
+      if (allVideoUrls.length > 0) {
+        formData.append('videos', JSON.stringify(allVideoUrls));
+      }
+
+      await api.post('/studio/classes', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       
       setShowCreateModal(false);
       resetForm();
       fetchData();
+      toast.success('Class created successfully!');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create class');
+      toast.error(err.response?.data?.error || 'Failed to create class');
     } finally {
       setCreateLoading(false);
     }
@@ -398,12 +502,12 @@ export default function CalendarPage() {
       dance_style: '',
       level: 'All Levels',
       duration_minutes: 60,
-    max_capacity: 20,
-    price: 500,
-    instructor_name: '',
-    instructor_description: '',
-    instructor_instagram_handle: '',
-    room: 'Main Studio',
+      max_capacity: 20,
+      price: 500,
+      instructor_name: '',
+      instructor_description: '',
+      instructor_instagram_handle: '',
+      room: 'Main Studio',
       start_time: '18:00',
       description: '',
       is_recurring: false,
@@ -411,8 +515,16 @@ export default function CalendarPage() {
       recurrence_days: [],
       recurrence_end_date: '',
       session_dates: [],
+      images: [],
+      videos: [],
     });
+    setImageFiles([]);
+    setVideoFiles([]);
+    setImageUrls([]);
+    setVideoUrls([]);
     setError('');
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (videoInputRef.current) videoInputRef.current.value = '';
   };
 
   const toggleRecurrenceDay = (day: number) => {
@@ -1251,6 +1363,183 @@ export default function CalendarPage() {
                     min="0"
                   />
                 </div>
+              </div>
+
+              {/* Images Section */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Class Images
+                </label>
+                
+                {/* File Upload */}
+                <div className="mb-3">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageFileSelect}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors"
+                  >
+                    <Upload className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">Upload Images</span>
+                  </label>
+                </div>
+
+                {/* URL Input */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    id="image-url-input"
+                    type="url"
+                    placeholder="Or paste image URL"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addImageUrl();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addImageUrl}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                  >
+                    Add URL
+                  </button>
+                </div>
+
+                {/* Image Previews */}
+                {(imageFiles.length > 0 || imageUrls.length > 0) && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {imageFiles.map((file, idx) => (
+                      <div key={`file-${idx}`} className="relative group">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`Preview ${idx + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImageFile(idx)}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
+                      </div>
+                    ))}
+                    {imageUrls.map((url, idx) => (
+                      <div key={`url-${idx}`} className="relative group">
+                        <img
+                          src={url}
+                          alt={`URL ${idx + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3EImage%3C/text%3E%3C/svg%3E';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImageUrl(idx)}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Videos Section */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <Video className="w-4 h-4" />
+                  Class Videos
+                </label>
+                
+                {/* File Upload */}
+                <div className="mb-3">
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    onChange={handleVideoFileSelect}
+                    className="hidden"
+                    id="video-upload"
+                  />
+                  <label
+                    htmlFor="video-upload"
+                    className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors"
+                  >
+                    <Upload className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">Upload Videos</span>
+                  </label>
+                </div>
+
+                {/* URL Input */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    id="video-url-input"
+                    type="url"
+                    placeholder="Or paste video URL (YouTube, Vimeo, etc.)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addVideoUrl();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addVideoUrl}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                  >
+                    Add URL
+                  </button>
+                </div>
+
+                {/* Video Previews */}
+                {(videoFiles.length > 0 || videoUrls.length > 0) && (
+                  <div className="space-y-2">
+                    {videoFiles.map((file, idx) => (
+                      <div key={`file-${idx}`} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg group">
+                        <Video className="w-4 h-4 text-gray-400" />
+                        <span className="flex-1 text-sm text-gray-600 truncate">{file.name}</span>
+                        <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                        <button
+                          type="button"
+                          onClick={() => removeVideoFile(idx)}
+                          className="p-1 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {videoUrls.map((url, idx) => (
+                      <div key={`url-${idx}`} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg group">
+                        <Video className="w-4 h-4 text-gray-400" />
+                        <span className="flex-1 text-sm text-gray-600 truncate">{url}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeVideoUrl(idx)}
+                          className="p-1 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Recurring Toggle */}

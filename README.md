@@ -620,10 +620,19 @@ curl http://localhost:5001/api/conversations \
 
 ## ✨ Recent Updates
 
+### S3 Integration & Class Media Management (January 2026)
+- ✅ **AWS S3 Integration**: Centralized S3 service for uploading and managing class images and videos
+- ✅ **Class Media Upload**: Upload images and videos directly when creating classes via multipart/form-data
+- ✅ **Unified Media Slider**: Combined image and video slider on booking page with left/right navigation, thumbnails, and indicators
+- ✅ **Class Thumbnails**: Class list displays actual class images when available, with gradient avatar fallback
+- ✅ **Full Image Display**: Images shown without cropping using object-contain for proper aspect ratio preservation
+- ✅ **Video Support**: Handles YouTube, Vimeo, and direct video URLs with proper embedding
+- ✅ **S3 URL Management**: Automatic S3 URL generation and storage in database for class media
+
 ### Public Booking Page Redesign (January 2026)
 - ✅ **Modern hero section**: Full-screen hero image with studio branding and dynamic content
 - ✅ **Enhanced navigation**: Fixed glass morphism navigation with phone, WhatsApp, and Book Now buttons
-- ✅ **Tabbed booking interface**: Separate tabs for "Book a Class" and "Rent the Studio" (rental with dummy data)
+- ✅ **Tabbed booking interface**: Separate tabs for "Book a Class" and "Rent the Studio" (rental tab commented out, ready for future implementation)
 - ✅ **Gallery section**: Beautiful grid layout showcasing studio photos with hover effects
 - ✅ **Testimonials display**: 3-column grid showing student reviews and ratings
 - ✅ **Map & contact integration**: Google Maps embed with address, business hours, and WhatsApp support card

@@ -113,6 +113,14 @@ export default function PublicBookingPage() {
     return day;
   });
 
+  // Helper function to format date as YYYY-MM-DD in local timezone (not UTC)
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     fetchStudioAndSessions();
     loadRazorpayScript();
@@ -154,10 +162,10 @@ export default function PublicBookingPage() {
       });
       
       // Fetch available sessions for the week
-      const startDate = weekStart.toISOString().split('T')[0];
+      const startDate = formatDateLocal(weekStart);
       const endDate = new Date(weekStart);
       endDate.setDate(endDate.getDate() + 7);
-      const endDateStr = endDate.toISOString().split('T')[0];
+      const endDateStr = formatDateLocal(endDate);
       
       try {
         const sessionsResponse = await api.get(`/bookings/public/sessions/${studioSlug}?start_date=${startDate}&end_date=${endDateStr}`);
@@ -184,7 +192,7 @@ export default function PublicBookingPage() {
                 instructor_name: 'TBA',
                 start_time: sessionDate.toISOString(),
                 end_time: sessionEndTime.toISOString(),
-                date: day.toISOString().split('T')[0],
+                date: formatDateLocal(day),
                 spots_available: cls.max_capacity - Math.floor(Math.random() * 5),
                 max_students: cls.max_capacity,
                 drop_in_price: cls.price,
@@ -247,7 +255,7 @@ export default function PublicBookingPage() {
           instructor_name: ['Priya', 'Rahul', 'Maya'][idx % 3],
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
-          date: day.toISOString().split('T')[0],
+          date: formatDateLocal(day),
           spots_available: 5 + Math.floor(Math.random() * 10),
           max_students: 15,
           drop_in_price: classInfo.price,
@@ -273,7 +281,7 @@ export default function PublicBookingPage() {
   };
 
   const getSessionsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateLocal(date);
     return sessions.filter(s => s.date === dateStr && !s.is_cancelled);
   };
 
@@ -435,6 +443,16 @@ export default function PublicBookingPage() {
     return 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1920&q=80';
   };
 
+  const getLocationDisplay = () => {
+    if (studio?.city) return studio.city;
+    if (studio?.address) {
+      // Show first part of address (before comma or first 20 chars)
+      const address = studio.address.split(',')[0].trim();
+      return address.length > 25 ? address.substring(0, 22) + '...' : address;
+    }
+    return null;
+  };
+
   const getMapUrl = () => {
     const address = studio?.address ? `${studio.address}${studio.city ? ', ' + studio.city : ''}` : '';
     if (!address) return '';
@@ -528,7 +546,7 @@ export default function PublicBookingPage() {
               <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full mb-6 border border-white/20">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                 <span className="text-sm font-medium uppercase tracking-widest">
-                  Open Today{studio?.city ? ` • ${studio.city}` : ''}
+                  Open Today{getLocationDisplay() ? ` • ${getLocationDisplay()}` : ''}
                 </span>
               </div>
               <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter mb-6 leading-[0.9]">

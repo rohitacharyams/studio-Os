@@ -135,13 +135,18 @@ def public_create_order():
     amount = Decimal(str(data['amount']))
     currency = data.get('currency', studio.currency or 'INR')
     
+    # Log the amount for debugging
+    print(f"[PAYMENT DEBUG] Received amount: {data['amount']}, Calculated amount: {amount}, Amount in paise: {int(amount * 100)}")
+    
     # Generate a reference number
     ref_number = f"PUB-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
     
     try:
         # Create Razorpay order
+        amount_in_paise = int(amount * 100)
+        print(f"[PAYMENT DEBUG] Creating Razorpay order with amount_in_paise: {amount_in_paise}, currency: {currency}")
         razorpay_order = client.order.create({
-            'amount': int(amount * 100),  # Razorpay expects paise
+            'amount': amount_in_paise,  # Razorpay expects paise
             'currency': currency,
             'receipt': ref_number,
             'notes': {

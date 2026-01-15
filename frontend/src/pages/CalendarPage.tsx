@@ -119,6 +119,8 @@ export default function CalendarPage() {
     start_time: '',
     max_capacity: 20,
     instructor_name: '',
+    instructor_description: '',
+    instructor_instagram_handle: '',
     room: '',
     notes: ''
   });

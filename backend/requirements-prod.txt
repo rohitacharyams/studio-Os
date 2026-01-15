@@ -39,3 +39,4 @@ PyJWT==2.8.0
 # Azure specific
 azure-identity==1.15.0
 azure-storage-blob==12.19.0
+boto3==1.34.34

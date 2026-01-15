@@ -11,6 +11,7 @@ from .webhooks import webhooks_bp
 from .studio import studio_bp
 from .templates import templates_bp
 from .contacts import contacts_bp
+from .location import location_bp
 
 __all__ = [
     'auth_bp',
@@ -22,4 +23,5 @@ __all__ = [
     'studio_bp',
     'templates_bp',
     'contacts_bp',
+    'location_bp',
 ]

@@ -366,6 +366,45 @@ class S3Service:
             pass
         
         return None
+    
+    def upload_buffer(self, buffer, s3_key: str, content_type: str) -> Optional[str]:
+        """
+        Upload a BytesIO buffer directly to S3.
+        
+        Args:
+            buffer: BytesIO object with file data
+            s3_key: Full S3 key (path/filename)
+            content_type: MIME type of the file
+        
+        Returns:
+            Public URL of the uploaded file, or None if failed
+        """
+        try:
+            buffer.seek(0)  # Ensure buffer is at start
+            s3_client = self._get_s3_client()
+            
+            extra_args = {
+                'ContentType': content_type,
+            }
+            
+            s3_client.upload_fileobj(
+                buffer,
+                self.bucket_name,
+                s3_key,
+                ExtraArgs=extra_args
+            )
+            
+            # Generate URL
+            if self.bucket_url:
+                url = f"{self.bucket_url.rstrip('/')}/{s3_key}"
+            else:
+                url = f"https://{self.bucket_name}.s3.{self.aws_region}.amazonaws.com/{s3_key}"
+            
+            return url
+            
+        except Exception as e:
+            current_app.logger.error(f"Failed to upload buffer to S3: {str(e)}")
+            return None
 
 
 # Singleton instance

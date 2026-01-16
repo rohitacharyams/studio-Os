@@ -76,6 +76,9 @@ class Config:
     # CORS
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
     
+    # Frontend URL (for QR code links)
+    FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://dance-studio-os.netlify.app')
+    
     # AWS S3 Configuration
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')

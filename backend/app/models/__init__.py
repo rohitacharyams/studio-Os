@@ -784,6 +784,12 @@ class Booking(db.Model):
     cancellation_reason = db.Column(db.String(255))
     refund_amount = db.Column(db.Numeric(10, 2), default=0)
     
+    # QR Code and verification
+    qr_code_token = db.Column(db.String(100), unique=True, nullable=True)  # Unique token for QR code verification
+    qr_code_url = db.Column(db.String(500), nullable=True)  # S3 URL for QR code image
+    pdf_url = db.Column(db.String(500), nullable=True)  # S3 URL for booking confirmation PDF
+    attendance_marked_at = db.Column(db.DateTime, nullable=True)  # When attendance was marked via QR scan
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -799,10 +805,14 @@ class Booking(db.Model):
             'payment_method': self.payment_method,
             'razorpay_payment_id': self.razorpay_payment_id,
             'razorpay_order_id': self.razorpay_order_id,
+            'qr_code_token': self.qr_code_token,
+            'qr_code_url': self.qr_code_url,
+            'pdf_url': self.pdf_url,
             'booked_at': self.booked_at.isoformat() if self.booked_at else None,
             'confirmed_at': self.confirmed_at.isoformat() if self.confirmed_at else None,
             'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None,
             'checked_in_at': self.checked_in_at.isoformat() if self.checked_in_at else None,
+            'attendance_marked_at': self.attendance_marked_at.isoformat() if self.attendance_marked_at else None,
         }
         if include_session and self.session:
             data['session'] = self.session.to_dict()

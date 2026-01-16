@@ -44,4 +44,22 @@ IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'book
     ALTER TABLE bookings ADD razorpay_order_id NVARCHAR(100);
 GO
 
+-- Migration 007: Add QR code and attendance fields to bookings table
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'bookings' AND COLUMN_NAME = 'qr_code_token')
+    ALTER TABLE bookings ADD qr_code_token NVARCHAR(100);
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'bookings' AND COLUMN_NAME = 'qr_code_url')
+    ALTER TABLE bookings ADD qr_code_url NVARCHAR(500);
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'bookings' AND COLUMN_NAME = 'pdf_url')
+    ALTER TABLE bookings ADD pdf_url NVARCHAR(500);
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'bookings' AND COLUMN_NAME = 'attendance_marked_at')
+    ALTER TABLE bookings ADD attendance_marked_at DATETIME;
+GO
+
+-- Add unique constraint to qr_code_token (must check for existing constraint first)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID('bookings') AND name = 'UQ_bookings_qr_code_token')
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX UQ_bookings_qr_code_token ON bookings(qr_code_token) WHERE qr_code_token IS NOT NULL;
+END
+GO
+
 PRINT 'Migrations applied successfully!';

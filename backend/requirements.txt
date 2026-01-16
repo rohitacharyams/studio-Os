@@ -44,6 +44,14 @@ python-dateutil==2.8.2
 requests==2.31.0
 boto3==1.34.34
 
+# QR Code and PDF generation
+qrcode==7.4.2
+Pillow==10.2.0
+reportlab==4.0.9
+qrcode==7.4.2
+Pillow==10.2.0
+reportlab==4.0.9
+
 # Google OAuth & Gmail API
 google-auth==2.25.2
 google-auth-oauthlib==1.2.0

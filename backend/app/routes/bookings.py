@@ -1168,6 +1168,11 @@ def public_create_booking():
             contact.email = data['customer_email']
     
     # Create booking
+    from app.services.qr_service import QRService
+    
+    # Generate QR token for verification
+    qr_token = QRService.generate_qr_token()
+    
     booking = Booking(
         id=str(uuid.uuid4()),
         studio_id=studio.id,
@@ -1178,6 +1183,7 @@ def public_create_booking():
         payment_method=data.get('payment_method', 'pay_at_studio'),
         razorpay_payment_id=data.get('razorpay_payment_id'),
         razorpay_order_id=data.get('razorpay_order_id'),
+        qr_code_token=qr_token,
         booked_at=datetime.utcnow()
     )
     
@@ -1204,12 +1210,66 @@ def public_create_booking():
         
         db.session.commit()
         
+        # Generate QR code and PDF, then send notification
+        try:
+            from app.services.notification_service import NotificationService
+            
+            # Prepare booking data for PDF
+            booking_pdf_data = {
+                'booking_number': booking.booking_number,
+                'customer_name': contact.name,
+                'customer_email': contact.email or '',
+                'customer_phone': contact.phone or '',
+                'class_name': class_name,
+                'session_date': session_date,
+                'session_time': session_time,
+                'studio_name': studio.name,
+                'studio_address': f"{studio.address}, {studio.city}" if studio.address and studio.city else studio.address or '',
+                'payment_method': booking.payment_method,
+                'amount': float(dance_class.price_per_class) if dance_class and dance_class.price_per_class else 0,
+            }
+            
+            # Generate and upload QR code + PDF
+            qr_url, pdf_url = QRService.generate_and_upload_booking_assets(
+                booking_number=booking.booking_number,
+                qr_token=qr_token,
+                booking_data=booking_pdf_data,
+                studio_id=studio.id
+            )
+            
+            # Update booking with URLs
+            if qr_url and pdf_url:
+                booking.qr_code_url = qr_url
+                booking.pdf_url = pdf_url
+                db.session.commit()
+                
+                # Send notification to customer
+                contact_data = {
+                    'name': contact.name,
+                    'email': contact.email,
+                    'phone': contact.phone
+                }
+                
+                NotificationService.send_booking_confirmation(
+                    contact_data=contact_data,
+                    booking_data=booking_pdf_data,
+                    pdf_url=pdf_url
+                )
+            
+        except Exception as e:
+            # Log error but don't fail the booking
+            import traceback
+            print(f"[QR GENERATION ERROR] Failed to generate QR/PDF: {str(e)}")
+            print(traceback.format_exc())
+        
         return jsonify({
             'message': 'Booking confirmed',
             'booking': {
                 'id': booking.id,
                 'booking_number': booking.booking_number,
                 'status': booking.status,
+                'qr_code_url': booking.qr_code_url,
+                'pdf_url': booking.pdf_url,
                 'class_name': dance_class.name if dance_class else 'Class',
                 'date': session.date.isoformat(),
                 'time': session.start_time.strftime('%H:%M') if session.start_time else None
@@ -1268,3 +1328,144 @@ def get_session_bookings(session_id):
         'total': len(result),
         'session_id': session_id
     })
+
+
+@bookings_bp.route('/verify-qr', methods=['POST'])
+def verify_qr_code():
+    """
+    Verify a booking QR code and optionally mark attendance.
+    Public endpoint for studio staff to scan QR codes.
+    """
+    data = request.get_json()
+    
+    if not data.get('qr_token'):
+        return jsonify({'error': 'QR token is required'}), 400
+    
+    # Find booking by QR token
+    booking = Booking.query.filter_by(qr_code_token=data['qr_token']).first()
+    
+    if not booking:
+        return jsonify({'error': 'Invalid QR code'}), 404
+    
+    # Get related data
+    contact = Contact.query.get(booking.contact_id) if booking.contact_id else None
+    session = ClassSession.query.get(booking.session_id) if booking.session_id else None
+    dance_class = DanceClass.query.get(session.class_id) if session and session.class_id else None
+    studio = Studio.query.get(booking.studio_id)
+    
+    # Mark attendance if requested
+    if data.get('mark_attendance') and not booking.attendance_marked_at:
+        booking.attendance_marked_at = datetime.utcnow()
+        booking.status = 'ATTENDED'
+        db.session.commit()
+    
+    # Return booking details
+    return jsonify({
+        'valid': True,
+        'booking': {
+            'id': booking.id,
+            'booking_number': booking.booking_number,
+            'status': booking.status,
+            'customer_name': contact.name if contact else 'Unknown',
+            'customer_phone': contact.phone if contact else '',
+            'customer_email': contact.email if contact else '',
+            'class_name': dance_class.name if dance_class else 'N/A',
+            'session_date': session.date.strftime('%b %d, %Y') if session and session.date else 'N/A',
+            'session_time': session.start_time.strftime('%H:%M') if session and session.start_time else 'N/A',
+            'studio_name': studio.name if studio else 'N/A',
+            'payment_method': booking.payment_method,
+            'razorpay_payment_id': booking.razorpay_payment_id,
+            'booked_at': booking.booked_at.isoformat() if booking.booked_at else None,
+            'attendance_marked_at': booking.attendance_marked_at.isoformat() if booking.attendance_marked_at else None,
+            'already_attended': booking.attendance_marked_at is not None,
+        }
+    })
+
+
+@bookings_bp.route('/<booking_id>/resend-qr', methods=['POST'])
+def resend_qr_code(booking_id):
+    """
+    Regenerate and resend QR code PDF for a booking.
+    Can be called by customer or studio admin.
+    """
+    booking = Booking.query.get(booking_id)
+    
+    if not booking:
+        return jsonify({'error': 'Booking not found'}), 404
+    
+    # Get related data
+    contact = Contact.query.get(booking.contact_id) if booking.contact_id else None
+    session = ClassSession.query.get(booking.session_id) if booking.session_id else None
+    dance_class = DanceClass.query.get(session.class_id) if session and session.class_id else None
+    studio = Studio.query.get(booking.studio_id)
+    
+    if not contact or not studio:
+        return jsonify({'error': 'Required booking data not found'}), 500
+    
+    try:
+        from app.services.qr_service import QRService
+        from app.services.notification_service import NotificationService
+        
+        # Prepare booking data
+        session_date = session.date.strftime('%b %d, %Y') if session and session.date else 'N/A'
+        session_time = session.start_time.strftime('%H:%M') if session and session.start_time else 'N/A'
+        
+        booking_pdf_data = {
+            'booking_number': booking.booking_number,
+            'customer_name': contact.name,
+            'customer_email': contact.email or '',
+            'customer_phone': contact.phone or '',
+            'class_name': dance_class.name if dance_class else 'Class',
+            'session_date': session_date,
+            'session_time': session_time,
+            'studio_name': studio.name,
+            'studio_address': f"{studio.address}, {studio.city}" if studio.address and studio.city else studio.address or '',
+            'payment_method': booking.payment_method or 'N/A',
+            'amount': float(dance_class.price_per_class) if dance_class and dance_class.price_per_class else 0,
+        }
+        
+        # Regenerate QR code and PDF (use existing token)
+        if not booking.qr_code_token:
+            booking.qr_code_token = QRService.generate_qr_token()
+            db.session.commit()
+        
+        qr_url, pdf_url = QRService.generate_and_upload_booking_assets(
+            booking_number=booking.booking_number,
+            qr_token=booking.qr_code_token,
+            booking_data=booking_pdf_data,
+            studio_id=studio.id
+        )
+        
+        if not qr_url or not pdf_url:
+            return jsonify({'error': 'Failed to generate QR code/PDF'}), 500
+        
+        # Update booking
+        booking.qr_code_url = qr_url
+        booking.pdf_url = pdf_url
+        db.session.commit()
+        
+        # Resend notification
+        contact_data = {
+            'name': contact.name,
+            'email': contact.email,
+            'phone': contact.phone
+        }
+        
+        result = NotificationService.send_booking_confirmation(
+            contact_data=contact_data,
+            booking_data=booking_pdf_data,
+            pdf_url=pdf_url
+        )
+        
+        return jsonify({
+            'message': 'QR code regenerated and sent successfully',
+            'qr_code_url': qr_url,
+            'pdf_url': pdf_url,
+            'notification_sent': result
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"[RESEND QR ERROR] {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to resend QR code: {str(e)}'}), 500

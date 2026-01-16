@@ -1,0 +1,5 @@
+<step title="Startup Request" date="2026-01-15T07:11:38.316" instance="01f968" url="/webssh/host" method="GET" type="request" pid="768,1,5" ScmType="None" SCM_DO_BUILD_DURING_DEPLOYMENT="true" >
+  <step title="Cleanup Xml Logs" date="2026-01-15T07:11:38.323" >
+    <step title="Cleanup Infos" date="2026-01-15T07:11:38.354" totalFiles="233" totalCleanup="73" /><!-- duration: 11ms -->
+  </step><!-- duration: 53ms -->
+</step><!-- duration: 89ms -->

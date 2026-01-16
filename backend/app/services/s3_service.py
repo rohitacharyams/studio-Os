@@ -380,13 +380,21 @@ class S3Service:
             Public URL of the uploaded file, or None if failed
         """
         try:
+            current_app.logger.info(f"[S3] upload_buffer called for key: {s3_key}")
+            current_app.logger.info(f"[S3] bucket: {self.bucket_name}, region: {self.aws_region}")
+            
             buffer.seek(0)  # Ensure buffer is at start
             s3_client = self._get_s3_client()
+            
+            if not s3_client:
+                current_app.logger.error(f"[S3] Failed to get S3 client - credentials may be missing")
+                return None
             
             extra_args = {
                 'ContentType': content_type,
             }
             
+            current_app.logger.info(f"[S3] Uploading to bucket {self.bucket_name}...")
             s3_client.upload_fileobj(
                 buffer,
                 self.bucket_name,
@@ -400,10 +408,13 @@ class S3Service:
             else:
                 url = f"https://{self.bucket_name}.s3.{self.aws_region}.amazonaws.com/{s3_key}"
             
+            current_app.logger.info(f"[S3] Upload successful, URL: {url}")
             return url
             
         except Exception as e:
-            current_app.logger.error(f"Failed to upload buffer to S3: {str(e)}")
+            import traceback
+            current_app.logger.error(f"[S3] Failed to upload buffer to S3: {str(e)}")
+            current_app.logger.error(traceback.format_exc())
             return None
 
 

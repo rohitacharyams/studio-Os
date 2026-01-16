@@ -1,0 +1,4 @@
+<step title="Incoming Request" date="2026-01-07T15:08:24.966" instance="01f968" url="/dump" method="GET" type="request" pid="770,1,18" Host="studioos-api.scm.azurewebsites.net" User-Agent="python-urllib3/1.26.7" Accept-Encoding="identity" Authorization="Bas..." X-ARR-LOG-ID="ee130b8b-426e-4113-a069-6bfd858bef9c" CLIENT-IP="13.70.96.89:55626" X-SITE-DEPLOYMENT-ID="studioos-api" WAS-DEFAULT-HOSTNAME="studioos-api.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/dump" X-Client-IP="13.70.96.89" X-Client-Port="55626" >
+  <step title="Cleanup Xml Logs" date="2026-01-07T15:08:24.970" /><!-- duration: 20ms -->
+  <step title="Outgoing response" date="2026-01-07T15:08:25.357" type="response" statusCode="200" statusText="OK" /><!-- duration: 4ms -->
+</step><!-- duration: 397ms -->

@@ -1212,6 +1212,9 @@ def public_create_booking():
         
         # Generate QR code and PDF, then send notification
         try:
+            from flask import current_app
+            current_app.logger.info(f"[QR] Starting QR/PDF generation for booking {booking.booking_number}")
+            
             from app.services.notification_service import NotificationService
             
             # Prepare booking data for PDF
@@ -1229,6 +1232,8 @@ def public_create_booking():
                 'amount': float(dance_class.price_per_class) if dance_class and dance_class.price_per_class else 0,
             }
             
+            current_app.logger.info(f"[QR] Booking data prepared, calling QRService...")
+            
             # Generate and upload QR code + PDF
             qr_url, pdf_url = QRService.generate_and_upload_booking_assets(
                 booking_number=booking.booking_number,
@@ -1237,11 +1242,14 @@ def public_create_booking():
                 studio_id=studio.id
             )
             
+            current_app.logger.info(f"[QR] QRService returned: qr_url={qr_url}, pdf_url={pdf_url}")
+            
             # Update booking with URLs
             if qr_url and pdf_url:
                 booking.qr_code_url = qr_url
                 booking.pdf_url = pdf_url
                 db.session.commit()
+                current_app.logger.info(f"[QR] URLs saved to booking successfully")
                 
                 # Send notification to customer
                 contact_data = {
@@ -1250,17 +1258,24 @@ def public_create_booking():
                     'phone': contact.phone
                 }
                 
-                NotificationService.send_booking_confirmation(
-                    contact_data=contact_data,
-                    booking_data=booking_pdf_data,
-                    pdf_url=pdf_url
-                )
+                try:
+                    NotificationService.send_booking_confirmation(
+                        contact_data=contact_data,
+                        booking_data=booking_pdf_data,
+                        pdf_url=pdf_url
+                    )
+                    current_app.logger.info(f"[QR] Notification sent successfully")
+                except Exception as notify_error:
+                    current_app.logger.error(f"[QR] Notification failed: {str(notify_error)}")
+            else:
+                current_app.logger.warning(f"[QR] QRService returned None URLs")
             
         except Exception as e:
             # Log error but don't fail the booking
             import traceback
-            print(f"[QR GENERATION ERROR] Failed to generate QR/PDF: {str(e)}")
-            print(traceback.format_exc())
+            from flask import current_app
+            current_app.logger.error(f"[QR GENERATION ERROR] Failed to generate QR/PDF: {str(e)}")
+            current_app.logger.error(traceback.format_exc())
         
         return jsonify({
             'message': 'Booking confirmed',

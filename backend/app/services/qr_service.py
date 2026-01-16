@@ -207,39 +207,60 @@ class QRService:
             Tuple of (qr_code_url, pdf_url) or (None, None) if upload fails
         """
         try:
+            current_app.logger.info(f"[QRService] Starting asset generation for {booking_number}")
+            
             s3_service = S3Service()
+            current_app.logger.info(f"[QRService] S3Service initialized, bucket: {s3_service.bucket_name}")
             
             # Generate QR code data (verification URL)
             base_url = current_app.config.get('FRONTEND_URL', 'https://dance-studio-os.netlify.app')
             qr_data = f"{base_url}/verify-booking?token={qr_token}"
+            current_app.logger.info(f"[QRService] QR data URL: {qr_data}")
             
             # Add QR data to booking data
             booking_data['qr_code_data'] = qr_data
             
             # Generate QR code image
+            current_app.logger.info(f"[QRService] Generating QR code image...")
             qr_buffer = QRService.generate_qr_code(qr_data)
+            current_app.logger.info(f"[QRService] QR code generated, size: {qr_buffer.getbuffer().nbytes} bytes")
             
             # Upload QR code to S3
             qr_filename = f"bookings/{studio_id}/{booking_number}_qr.png"
+            current_app.logger.info(f"[QRService] Uploading QR to S3: {qr_filename}")
             qr_url = s3_service.upload_buffer(
                 qr_buffer,
                 qr_filename,
                 content_type='image/png'
             )
+            current_app.logger.info(f"[QRService] QR upload result: {qr_url}")
+            
+            if not qr_url:
+                current_app.logger.error(f"[QRService] QR upload failed, returning None")
+                return None, None
             
             # Generate PDF
+            current_app.logger.info(f"[QRService] Generating PDF...")
             pdf_buffer = QRService.generate_booking_pdf(booking_data)
+            current_app.logger.info(f"[QRService] PDF generated, size: {pdf_buffer.getbuffer().nbytes} bytes")
             
             # Upload PDF to S3
             pdf_filename = f"bookings/{studio_id}/{booking_number}_confirmation.pdf"
+            current_app.logger.info(f"[QRService] Uploading PDF to S3: {pdf_filename}")
             pdf_url = s3_service.upload_buffer(
                 pdf_buffer,
                 pdf_filename,
                 content_type='application/pdf'
             )
+            current_app.logger.info(f"[QRService] PDF upload result: {pdf_url}")
+            
+            if not pdf_url:
+                current_app.logger.error(f"[QRService] PDF upload failed")
             
             return qr_url, pdf_url
             
         except Exception as e:
-            current_app.logger.error(f"Failed to generate/upload booking assets: {str(e)}")
+            import traceback
+            current_app.logger.error(f"[QRService] Failed to generate/upload booking assets: {str(e)}")
+            current_app.logger.error(traceback.format_exc())
             return None, None

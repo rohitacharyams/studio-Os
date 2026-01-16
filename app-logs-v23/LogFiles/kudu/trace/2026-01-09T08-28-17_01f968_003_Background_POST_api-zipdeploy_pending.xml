@@ -1,0 +1,19 @@
+<step title="BackgroundTrace" date="2026-01-09T08:28:17.038" instance="01f968" url="/api/zipdeploy" method="POST" >
+  <step title="Cleanup Xml Logs" date="2026-01-09T08:28:17.148" /><!-- duration: 365ms -->
+  <step title="Creating temporary deployment - FetchDeploymentManager" date="2026-01-09T08:28:24.834" /><!-- duration: 50ms -->
+  <step title="Creating temporary deployment" date="2026-01-09T08:28:25.121" /><!-- duration: 2812ms -->
+  <step title="Performing fetch based deployment" date="2026-01-09T08:28:31.080" >
+    <step title="Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/7ea6a986-5783-4e1e-aa15-aaf8a8078a63.zip (0.42 MB) to /tmp/zipdeploy/extracted" date="2026-01-09T08:28:34.058" >
+      <step title="ChmodRecursive Process exited with total time taken in ms: 858" date="2026-01-09T08:28:37.478" /><!-- duration: 125ms -->
+    </step><!-- duration: 3863ms -->
+    <step title="Deployment timer started" date="2026-01-09T08:28:40.707" >
+      <step title="DeploymentManager.Deploy(id:648182e8-b0ae-40c1-bc25-0aa606dcfca6)" date="2026-01-09T08:28:40.838" >
+        <step title="Collecting changeset information" date="2026-01-09T08:28:41.048" /><!-- duration: 687ms -->
+        <step title="Updating submodules" date="2026-01-09T08:28:41.787" /><!-- duration: 1603ms -->
+        <step title="Determining deployment builder" date="2026-01-09T08:28:45.740" >
+          <step title="Builder is BasicBuilder" date="2026-01-09T08:28:46.008" /><!-- duration: 29ms -->
+        </step><!-- duration: 338ms -->
+        <step title="PreDeployment: context.CleanOutputPath False" date="2026-01-09T08:28:46.303" >
+          <step title="PreDeployment: context.OutputPath /home/site/wwwroot" date="2026-01-09T08:28:46.901" >
+            <step title="Building" date="2026-01-09T08:28:47.441" >
+              <step title="Executing external process" date="2026-01-09T08:28:48.751" type="process" path="starter.sh" arguments="/opt/Kudu/Scripts/parallel_rsync.sh /tmp/zipdeploy/extracted /home/site/wwwroot 8 /tmp/ False True  " /><!-- duration: 10936ms -->

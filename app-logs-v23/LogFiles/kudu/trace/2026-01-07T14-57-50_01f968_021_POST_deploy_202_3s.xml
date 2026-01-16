@@ -1,0 +1,16 @@
+<step title="Incoming Request" date="2026-01-07T14:57:50.115" instance="01f968" url="/deploy?scmType=ExternalGit&amp;isAsync=true" method="POST" type="request" pid="770,1,24" Host="studioos-api.scm.azurewebsites.net" User-Agent="Azure-WebSites-Controller/106.0.7.121" Authorization="Bas..." Expect="100-continue" Content-Length="83" x-ms-request-id="766a90eb-d720-40c2-b006-c23fab445fa1" X-ARR-LOG-ID="766a90eb-d720-40c2-b006-c23fab445fa1" CLIENT-IP="20.192.171.3:17218" X-SITE-DEPLOYMENT-ID="studioos-api" WAS-DEFAULT-HOSTNAME="studioos-api.scm.azurewebsites.net" X-MS-PLATFORM-INTERNAL="True" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/deploy?scmType=ExternalGit&amp;isAsync=true" X-Client-IP="20.192.171.3" X-Client-Port="17218" >
+  <step title="Cleanup Xml Logs" date="2026-01-07T14:57:50.122" /><!-- duration: 13ms -->
+  <step title="FetchHandler" date="2026-01-07T14:57:50.178" >
+    <step title="Executing external process" date="2026-01-07T14:57:50.239" type="process" path="git" arguments="rev-parse --git-dir" /><!-- duration: 996ms -->
+    <step title="Executing external process" date="2026-01-07T14:57:51.251" type="process" path="git" arguments="rev-parse --git-dir" /><!-- duration: 24ms -->
+    <step title="Executing external process" date="2026-01-07T14:57:51.288" type="process" path="git" arguments="log -n 1 main --" /><!-- duration: 311ms -->
+    <step title="Start deployment in the background" date="2026-01-07T14:57:51.628" >
+      <step title="Executing external process" date="2026-01-07T14:57:51.746" type="process" path="git" arguments="rev-parse --git-dir" /><!-- duration: 88ms -->
+      <step title="Executing external process" date="2026-01-07T14:57:51.864" type="process" path="git" arguments="rev-parse --git-dir" /><!-- duration: 91ms -->
+      <step title="Executing external process" date="2026-01-07T14:57:51.976" type="process" path="git" arguments="log -n 1 main --" /><!-- duration: 99ms -->
+      <step title="Acquiring Deployment Lock" date="2026-01-07T14:57:52.144" /><!-- duration: 51ms -->
+      <step title="Acquired Deployment Lock" date="2026-01-07T14:57:52.390" /><!-- duration: 10ms -->
+    </step><!-- duration: 989ms -->
+  </step><!-- duration: 2456ms -->
+  <step title="Outgoing response" date="2026-01-07T14:57:52.654" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 29ms -->
+</step><!-- duration: 2580ms -->

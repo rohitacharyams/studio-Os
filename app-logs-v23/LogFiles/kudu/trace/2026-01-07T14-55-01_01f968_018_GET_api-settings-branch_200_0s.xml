@@ -1,0 +1,4 @@
+<step title="Incoming Request" date="2026-01-07T14:55:01.025" instance="01f968" url="/api/settings/branch" method="GET" type="request" pid="770,1,15" Host="studioos-api.scm.azurewebsites.net" User-Agent="Azure-WebSites-Controller/106.0.7.121" Authorization="Bas..." x-ms-request-id="f55644bf-d1de-4b64-8fe4-2454902a458a" X-ARR-LOG-ID="f55644bf-d1de-4b64-8fe4-2454902a458a" CLIENT-IP="20.192.171.3:17920" X-SITE-DEPLOYMENT-ID="studioos-api" WAS-DEFAULT-HOSTNAME="studioos-api.scm.azurewebsites.net" X-MS-PLATFORM-INTERNAL="True" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/settings/branch" X-Client-IP="20.192.171.3" X-Client-Port="17920" >
+  <step title="Cleanup Xml Logs" date="2026-01-07T14:55:01.035" /><!-- duration: 31ms -->
+  <step title="Outgoing response" date="2026-01-07T14:55:01.115" type="response" statusCode="200" statusText="OK" /><!-- duration: 20ms -->
+</step><!-- duration: 128ms -->

@@ -118,6 +118,8 @@ export default function PublicBookingPage() {
   const [processing, setProcessing] = useState(false);
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [bookingRef, setBookingRef] = useState<string | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   // Generate week days
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -430,6 +432,8 @@ export default function PublicBookingPage() {
             if (booking) {
               setBookingId(booking.id || Math.floor(Math.random() * 10000));
               setBookingRef(booking.booking_number || booking.id || null);
+              setQrCodeUrl(booking.qr_code_url || null);
+              setPdfUrl(booking.pdf_url || null);
             } else {
               setBookingId(Math.floor(Math.random() * 10000));
             }
@@ -481,6 +485,8 @@ export default function PublicBookingPage() {
       const booking = response.data.booking;
       setBookingId(booking?.id || Math.floor(Math.random() * 10000));
       setBookingRef(booking?.booking_number || booking?.id || null);
+      setQrCodeUrl(booking?.qr_code_url || null);
+      setPdfUrl(booking?.pdf_url || null);
       setBookingStep('success');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create booking');
@@ -495,6 +501,8 @@ export default function PublicBookingPage() {
     setFormData({ name: '', phone: '', email: '' });
     setBookingId(null);
     setBookingRef(null);
+    setQrCodeUrl(null);
+    setPdfUrl(null);
     setError('');
   };
 
@@ -1448,9 +1456,38 @@ export default function PublicBookingPage() {
                 </div>
               </div>
 
+              {/* QR Code Display */}
+              {qrCodeUrl && (
+                <div className="mb-6">
+                  <p className="text-sm text-gray-600 mb-3">Show this QR code at the studio for check-in:</p>
+                  <div className="bg-white p-4 rounded-xl border-2 border-dashed" style={{ borderColor: `${theme.primary_color}50` }}>
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="Booking QR Code" 
+                      className="w-48 h-48 mx-auto"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3">
+                {pdfUrl && (
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 border-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                    style={{ borderColor: theme.primary_color, color: theme.primary_color }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download Booking PDF
+                  </a>
+                )}
+
                 <p className="text-sm text-gray-500">
-                  A confirmation has been sent to your WhatsApp
+                  A confirmation has been sent to your email
                 </p>
                 
                 <button
